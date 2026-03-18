@@ -33,11 +33,16 @@ import {
   BookOpen,
   CalendarCheck,
   CalendarDays,
+  Camera,
+  CheckCircle2,
   ChevronRight,
+  CreditCard,
   Eye,
   Grid3X3,
   Pencil,
   Plus,
+  QrCode,
+  StopCircle,
   Tag,
   Trash2,
   TrendingUp,
@@ -45,10 +50,13 @@ import {
   UserMinus,
   UserPlus,
   Users,
+  Wifi,
 } from "lucide-react";
 import type React from "react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useApp } from "../../contexts/AppContext";
+import { useQRScanner } from "../../qr-code/useQRScanner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +132,7 @@ interface ExpandedStudent {
   pgMarksObtained: string;
   // Other
   otherQualification: string;
+  rfidCardId: string;
   groupId: string;
 }
 
@@ -139,6 +148,17 @@ interface AttendanceRecord {
   date: string;
   status: "present" | "absent" | "late" | "half-day";
   subject?: string;
+  method?: "manual" | "qr" | "rfid";
+  timestamp?: string;
+}
+
+interface SessionAttendanceEntry {
+  studentId: string;
+  studentName: string;
+  rollNo: string;
+  status: "present" | "absent" | "late" | "half-day";
+  method: "manual" | "qr" | "rfid";
+  timestamp: string;
 }
 
 type SectionKey =
@@ -271,6 +291,7 @@ const EMPTY_STUDENT: Omit<ExpandedStudent, "id" | "schoolId" | "isActive"> = {
   pgTotalMarks: "",
   pgMarksObtained: "",
   otherQualification: "",
+  rfidCardId: "",
   groupId: "",
 };
 
@@ -339,6 +360,7 @@ const SEED_STUDENTS: ExpandedStudent[] = [
     pgTotalMarks: "",
     pgMarksObtained: "",
     otherQualification: "",
+    rfidCardId: "",
     groupId: "",
   },
   {
@@ -403,6 +425,7 @@ const SEED_STUDENTS: ExpandedStudent[] = [
     pgTotalMarks: "",
     pgMarksObtained: "",
     otherQualification: "",
+    rfidCardId: "",
     groupId: "",
   },
   {
@@ -467,6 +490,7 @@ const SEED_STUDENTS: ExpandedStudent[] = [
     pgTotalMarks: "1000",
     pgMarksObtained: "700",
     otherQualification: "CTET Qualified (2023)",
+    rfidCardId: "",
     groupId: "",
   },
   {
@@ -531,6 +555,7 @@ const SEED_STUDENTS: ExpandedStudent[] = [
     pgTotalMarks: "",
     pgMarksObtained: "",
     otherQualification: "",
+    rfidCardId: "",
     groupId: "",
   },
 ];
@@ -606,6 +631,581 @@ function Field({
   );
 }
 
+// ─── Attendance Section Component ────────────────────────────────────────────
+
+interface AttendanceSectionProps {
+  attDate: string;
+  setAttDate: (v: string) => void;
+  attCourse: string;
+  setAttCourse: (v: string) => void;
+  attSemYear: string;
+  setAttSemYear: (v: string) => void;
+  attStudents: ExpandedStudent[];
+  dailyAtt: Record<string, "present" | "absent" | "late" | "half-day">;
+  setDailyAtt: React.Dispatch<
+    React.SetStateAction<
+      Record<string, "present" | "absent" | "late" | "half-day">
+    >
+  >;
+  sessionEntries: SessionAttendanceEntry[];
+  attMode: "manual" | "qr" | "rfid";
+  setAttMode: (v: "manual" | "qr" | "rfid") => void;
+  rfidInput: string;
+  setRfidInput: (v: string) => void;
+  rfidInputRef: React.RefObject<HTMLInputElement | null>;
+  handleRFIDInput: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  processQRScan: (data: string) => void;
+  saveSessionAttendance: () => void;
+  attSaved: boolean;
+}
+
+function AttendanceSection({
+  attDate,
+  setAttDate,
+  attCourse,
+  setAttCourse,
+  attSemYear,
+  setAttSemYear,
+  attStudents,
+  dailyAtt,
+  setDailyAtt,
+  sessionEntries,
+  attMode,
+  setAttMode,
+  rfidInput,
+  setRfidInput,
+  rfidInputRef,
+  handleRFIDInput,
+  processQRScan,
+  saveSessionAttendance,
+  attSaved,
+}: AttendanceSectionProps) {
+  const qrScanner = useQRScanner({
+    facingMode: "environment",
+    scanInterval: 200,
+    maxResults: 20,
+  });
+
+  useEffect(() => {
+    if (qrScanner.qrResults.length > 0) {
+      const latest = qrScanner.qrResults[0];
+      processQRScan(latest.data);
+    }
+  }, [qrScanner.qrResults, processQRScan]);
+
+  useEffect(() => {
+    if (attMode === "rfid" && rfidInputRef.current) {
+      rfidInputRef.current.focus();
+    }
+  }, [attMode, rfidInputRef]);
+
+  // Stop scanning when leaving QR mode
+  useEffect(() => {
+    if (attMode !== "qr" && qrScanner.isScanning) {
+      qrScanner.stopScanning();
+    }
+  }, [attMode, qrScanner.isScanning, qrScanner.stopScanning]);
+
+  const statusColors: Record<string, string> = {
+    present:
+      "bg-emerald-500/10 text-emerald-700 border-emerald-200 dark:text-emerald-400",
+    absent: "bg-red-500/10 text-red-700 border-red-200 dark:text-red-400",
+    late: "bg-amber-500/10 text-amber-700 border-amber-200 dark:text-amber-400",
+    "half-day":
+      "bg-blue-500/10 text-blue-700 border-blue-200 dark:text-blue-400",
+  };
+
+  const methodBadge: Record<string, string> = {
+    manual: "bg-slate-100 text-slate-700",
+    qr: "bg-violet-100 text-violet-700",
+    rfid: "bg-cyan-100 text-cyan-700",
+  };
+
+  const presentCount = attStudents.filter(
+    (s) => (dailyAtt[s.id] ?? "absent") === "present",
+  ).length;
+  const absentCount = attStudents.filter(
+    (s) => (dailyAtt[s.id] ?? "absent") === "absent",
+  ).length;
+  const lateCount = attStudents.filter(
+    (s) => (dailyAtt[s.id] ?? "absent") === "late",
+  ).length;
+  const _halfDayCount = attStudents.filter(
+    (s) => (dailyAtt[s.id] ?? "absent") === "half-day",
+  ).length;
+
+  return (
+    <div>
+      <SectionHeader
+        title="Student Attendance"
+        subtitle="Mark attendance via Manual entry, QR Code scan, or RFID card"
+      />
+
+      {/* Session Setup */}
+      <div className="flex flex-wrap gap-3 mb-5 p-4 bg-muted/30 rounded-lg border border-border/50">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Date
+          </Label>
+          <input
+            type="date"
+            value={attDate}
+            onChange={(e) => setAttDate(e.target.value)}
+            className="flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            data-ocid="attendance.input"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Course
+          </Label>
+          <Select value={attCourse} onValueChange={setAttCourse}>
+            <SelectTrigger className="w-32" data-ocid="attendance.select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Courses</SelectItem>
+              {COURSES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Sem/Year
+          </Label>
+          <Select value={attSemYear} onValueChange={setAttSemYear}>
+            <SelectTrigger
+              className="w-32"
+              data-ocid="attendance.secondary_button"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {SEM_YEARS.map((y) => (
+                <SelectItem key={y} value={y}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Mode Tabs */}
+      <div className="flex gap-2 mb-5" data-ocid="attendance.tab">
+        {(["manual", "qr", "rfid"] as const).map((mode) => (
+          <button
+            type="button"
+            key={mode}
+            onClick={() => setAttMode(mode)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+              attMode === mode
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+            }`}
+            data-ocid={`attendance.${mode}_button`}
+          >
+            {mode === "manual" && <CalendarCheck size={15} />}
+            {mode === "qr" && <QrCode size={15} />}
+            {mode === "rfid" && <CreditCard size={15} />}
+            {mode === "manual" ? "Manual" : mode === "qr" ? "QR Scan" : "RFID"}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        {/* Left: Input Panel */}
+        <div className="xl:col-span-2 space-y-4">
+          {/* ── Manual Mode ── */}
+          {attMode === "manual" && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CalendarCheck size={16} className="text-primary" /> Manual
+                    Attendance
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const newAtt: Record<
+                          string,
+                          "present" | "absent" | "late" | "half-day"
+                        > = {};
+                        for (const s of attStudents) {
+                          newAtt[s.id] = "present";
+                        }
+                        setDailyAtt((p) => ({ ...p, ...newAtt }));
+                      }}
+                      data-ocid="attendance.primary_button"
+                    >
+                      <CheckCircle2 size={13} className="mr-1" /> Mark All
+                      Present
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDailyAtt({})}
+                      data-ocid="attendance.cancel_button"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">Photo</TableHead>
+                        <TableHead>Roll No</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Course</TableHead>
+                        <TableHead className="text-center">Present</TableHead>
+                        <TableHead className="text-center">Absent</TableHead>
+                        <TableHead className="text-center">Late</TableHead>
+                        <TableHead className="text-center">Half-Day</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {attStudents.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={8}
+                            className="text-center py-8 text-muted-foreground"
+                            data-ocid="attendance.empty_state"
+                          >
+                            No students match the selected filters
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        attStudents.map((s, i) => (
+                          <TableRow
+                            key={s.id}
+                            data-ocid={`attendance.item.${i + 1}`}
+                          >
+                            <TableCell>
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={s.photoUrl} />
+                                <AvatarFallback className="text-xs">
+                                  {s.name[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {s.rollNo}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {s.name}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {s.course}
+                            </TableCell>
+                            {(
+                              ["present", "absent", "late", "half-day"] as const
+                            ).map((status) => (
+                              <TableCell key={status} className="text-center">
+                                <input
+                                  type="radio"
+                                  name={`att_${s.id}`}
+                                  checked={
+                                    (dailyAtt[s.id] ?? "absent") === status
+                                  }
+                                  onChange={() =>
+                                    setDailyAtt((p) => ({
+                                      ...p,
+                                      [s.id]: status,
+                                    }))
+                                  }
+                                  className="w-4 h-4 accent-primary"
+                                  data-ocid={`attendance.radio.${i + 1}`}
+                                />
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── QR Scan Mode ── */}
+          {attMode === "qr" && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <QrCode size={16} className="text-primary" /> QR Code
+                  Attendance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!qrScanner.isSupported ? (
+                  <div
+                    className="text-center py-8 text-muted-foreground"
+                    data-ocid="attendance.error_state"
+                  >
+                    <Wifi size={32} className="mx-auto mb-2 opacity-40" />
+                    <p>Camera not supported in this browser.</p>
+                    <p className="text-xs mt-1">
+                      Use Chrome on desktop/Android for best results.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative bg-black rounded-lg overflow-hidden aspect-video max-h-64">
+                      <video
+                        ref={qrScanner.videoRef}
+                        className="w-full h-full object-cover"
+                        playsInline
+                        muted
+                        autoPlay
+                      />
+                      <canvas ref={qrScanner.canvasRef} className="hidden" />
+                      {!qrScanner.isActive && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-2">
+                          <Camera size={36} className="opacity-60" />
+                          <p className="text-sm opacity-70">
+                            Camera not started
+                          </p>
+                        </div>
+                      )}
+                      {qrScanner.isScanning && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-primary rounded-lg opacity-80" />
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 border-t-2 border-primary animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {!qrScanner.isScanning ? (
+                        <Button
+                          onClick={() => qrScanner.startScanning()}
+                          disabled={
+                            !qrScanner.canStartScanning || qrScanner.isLoading
+                          }
+                          data-ocid="attendance.primary_button"
+                        >
+                          <Camera size={14} className="mr-1.5" />
+                          {qrScanner.isLoading
+                            ? "Starting..."
+                            : "Start Scanning"}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          onClick={() => qrScanner.stopScanning()}
+                          data-ocid="attendance.cancel_button"
+                        >
+                          <StopCircle size={14} className="mr-1.5" /> Stop
+                          Scanning
+                        </Button>
+                      )}
+                      {/Mobi|Android/i.test(navigator.userAgent) && (
+                        <Button
+                          variant="outline"
+                          onClick={() => qrScanner.switchCamera()}
+                          data-ocid="attendance.toggle"
+                        >
+                          Switch Camera
+                        </Button>
+                      )}
+                    </div>
+                    {qrScanner.error && (
+                      <p
+                        className="text-sm text-destructive"
+                        data-ocid="attendance.error_state"
+                      >
+                        {typeof qrScanner.error === "string"
+                          ? qrScanner.error
+                          : qrScanner.error
+                            ? String(qrScanner.error)
+                            : null}
+                      </p>
+                    )}
+                    <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                      <p className="font-medium mb-1">How it works:</p>
+                      <p>1. Select date, course and sem/year above.</p>
+                      <p>2. Click Start Scanning.</p>
+                      <p>3. Show student&apos;s QR code to the camera.</p>
+                      <p>4. Student is automatically marked Present.</p>
+                      <p className="mt-1">
+                        QR format: STUDENT:&lt;AdmissionNo&gt;
+                      </p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── RFID Mode ── */}
+          {attMode === "rfid" && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CreditCard size={16} className="text-primary" /> RFID
+                  Attendance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Scan RFID Card / Enter Card ID
+                  </Label>
+                  <div className="relative">
+                    <CreditCard
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                      ref={rfidInputRef}
+                      value={rfidInput}
+                      onChange={(e) => setRfidInput(e.target.value)}
+                      onKeyDown={handleRFIDInput}
+                      placeholder="Scan or type card ID, then press Enter..."
+                      className="pl-9 text-lg tracking-widest font-mono"
+                      autoFocus
+                      data-ocid="attendance.input"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    RFID USB reader acts as keyboard — card ID is typed
+                    automatically. Press Enter or swipe card to mark attendance.
+                  </p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium">Setup Instructions:</p>
+                  <p>• Connect RFID USB reader to the computer.</p>
+                  <p>• Keep cursor in the input field above (auto-focused).</p>
+                  <p>
+                    • Swipe student card — ID is entered and student is marked
+                    Present.
+                  </p>
+                  <p>• For manual testing: type the card ID and press Enter.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Save Button */}
+          <div className="flex gap-3 items-center">
+            <Button
+              onClick={saveSessionAttendance}
+              data-ocid="attendance.submit_button"
+            >
+              Save Attendance
+            </Button>
+            {attSaved && (
+              <span
+                className="text-sm text-emerald-600 font-medium"
+                data-ocid="attendance.success_state"
+              >
+                ✓ Attendance saved!
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Live Session Log */}
+        <div className="space-y-3">
+          {/* Summary */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-emerald-500/10 border border-emerald-200 rounded-lg p-3 text-center">
+              <p className="text-xl font-bold text-emerald-700">
+                {presentCount}
+              </p>
+              <p className="text-xs text-emerald-600">Present</p>
+            </div>
+            <div className="bg-red-500/10 border border-red-200 rounded-lg p-3 text-center">
+              <p className="text-xl font-bold text-red-700">{absentCount}</p>
+              <p className="text-xs text-red-600">Absent</p>
+            </div>
+            <div className="bg-amber-500/10 border border-amber-200 rounded-lg p-3 text-center">
+              <p className="text-xl font-bold text-amber-700">{lateCount}</p>
+              <p className="text-xs text-amber-600">Late</p>
+            </div>
+            <div className="bg-slate-100 border border-slate-200 rounded-lg p-3 text-center">
+              <p className="text-xl font-bold text-slate-700">
+                {attStudents.length}
+              </p>
+              <p className="text-xs text-slate-600">Total</p>
+            </div>
+          </div>
+
+          {/* Session Log */}
+          <Card>
+            <CardHeader className="pb-2 pt-3 px-3">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <CalendarDays size={14} /> Session Log
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {sessionEntries.length} marked
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-72 overflow-y-auto divide-y divide-border">
+                {sessionEntries.length === 0 ? (
+                  <p
+                    className="text-xs text-muted-foreground text-center py-6"
+                    data-ocid="attendance.empty_state"
+                  >
+                    No students marked yet
+                  </p>
+                ) : (
+                  sessionEntries.map((entry, i) => (
+                    <div
+                      key={entry.studentId}
+                      className="px-3 py-2"
+                      data-ocid={`attendance.log.${i + 1}`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">
+                            {entry.studentName}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {entry.rollNo}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0">
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded-full border capitalize ${statusColors[entry.status]}`}
+                          >
+                            {entry.status}
+                          </span>
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded-full uppercase font-medium ${methodBadge[entry.method]}`}
+                          >
+                            {entry.method}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function StudentInfoModule() {
@@ -665,6 +1265,17 @@ export default function StudentInfoModule() {
     Record<string, "present" | "absent" | "late" | "half-day">
   >({});
   const [attSaved, setAttSaved] = useState(false);
+  const [attMode, setAttMode] = useState<"manual" | "qr" | "rfid">("manual");
+  const [sessionEntries, setSessionEntries] = useState<
+    SessionAttendanceEntry[]
+  >([]);
+  const [rfidInput, setRfidInput] = useState("");
+  const [qrStudentQRModal, setQrStudentQRModal] = useState<{
+    admissionNo: string;
+    name: string;
+  } | null>(null);
+  const rfidInputRef = useRef<HTMLInputElement>(null);
+  const processedQRRef = useRef<Set<string>>(new Set());
 
   // Attendance report filters
   const [reportFrom, setReportFrom] = useState("");
@@ -793,6 +1404,7 @@ export default function StudentInfoModule() {
       pgTotalMarks: s.pgTotalMarks,
       pgMarksObtained: s.pgMarksObtained,
       otherQualification: s.otherQualification,
+      rfidCardId: s.rfidCardId,
       groupId: s.groupId,
     });
     setActiveSection("add-student");
@@ -830,7 +1442,7 @@ export default function StudentInfoModule() {
     reader.readAsDataURL(file);
   };
 
-  const saveAttendance = () => {
+  const _saveAttendance = () => {
     const newRecords = attStudents.map((s) => ({
       studentId: s.id,
       date: attDate,
@@ -886,6 +1498,156 @@ export default function StudentInfoModule() {
     ]);
     setGroupForm({ name: "", description: "" });
     setShowAddGroup(false);
+  };
+
+  // ── Attendance Handlers ──
+  const _markStudentPresent = (
+    studentId: string,
+    method: "manual" | "qr" | "rfid",
+  ) => {
+    const student = attStudents.find((s) => s.id === studentId);
+    if (!student) return;
+    const ts = new Date().toISOString();
+    setSessionEntries((prev) => {
+      const existing = prev.find((e) => e.studentId === studentId);
+      if (existing) {
+        return prev.map((e) =>
+          e.studentId === studentId
+            ? { ...e, status: "present", method, timestamp: ts }
+            : e,
+        );
+      }
+      return [
+        ...prev,
+        {
+          studentId,
+          studentName: student.name,
+          rollNo: student.rollNo,
+          status: "present",
+          method,
+          timestamp: ts,
+        },
+      ];
+    });
+    setDailyAtt((p) => ({ ...p, [studentId]: "present" }));
+  };
+
+  const processQRScan = useCallback(
+    (data: string) => {
+      if (processedQRRef.current.has(data)) return;
+      processedQRRef.current.add(data);
+      setTimeout(() => processedQRRef.current.delete(data), 3000);
+
+      let admissionNo = data;
+      if (data.startsWith("STUDENT:")) {
+        admissionNo = data.replace("STUDENT:", "");
+      }
+      const student = attStudents.find(
+        (s) => s.admissionNo === admissionNo || s.rollNo === admissionNo,
+      );
+      if (student) {
+        const ts = new Date().toISOString();
+        setSessionEntries((prev) => {
+          const existing = prev.find((e) => e.studentId === student.id);
+          if (existing)
+            return prev.map((e) =>
+              e.studentId === student.id
+                ? {
+                    ...e,
+                    status: "present",
+                    method: "qr" as const,
+                    timestamp: ts,
+                  }
+                : e,
+            );
+          return [
+            ...prev,
+            {
+              studentId: student.id,
+              studentName: student.name,
+              rollNo: student.rollNo,
+              status: "present" as const,
+              method: "qr" as const,
+              timestamp: ts,
+            },
+          ];
+        });
+        setDailyAtt((p) => ({ ...p, [student.id]: "present" }));
+        toast.success(`${student.name} marked Present via QR`);
+      } else {
+        toast.error(`No student found for QR: ${admissionNo}`);
+      }
+    },
+    [attStudents],
+  );
+
+  const handleRFIDInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const cardId = rfidInput.trim();
+      if (!cardId) return;
+      const student = attStudents.find(
+        (s) => s.rfidCardId === cardId || s.admissionNo === cardId,
+      );
+      if (student) {
+        const ts = new Date().toISOString();
+        setSessionEntries((prev) => {
+          const existing = prev.find((e) => e.studentId === student.id);
+          if (existing)
+            return prev.map((e) =>
+              e.studentId === student.id
+                ? {
+                    ...e,
+                    status: "present",
+                    method: "rfid" as const,
+                    timestamp: ts,
+                  }
+                : e,
+            );
+          return [
+            ...prev,
+            {
+              studentId: student.id,
+              studentName: student.name,
+              rollNo: student.rollNo,
+              status: "present" as const,
+              method: "rfid" as const,
+              timestamp: ts,
+            },
+          ];
+        });
+        setDailyAtt((p) => ({ ...p, [student.id]: "present" }));
+        toast.success(`${student.name} — Present (RFID)`);
+      } else {
+        toast.error(`No student found for card ID: ${cardId}`);
+      }
+      setRfidInput("");
+      rfidInputRef.current?.focus();
+    }
+  };
+
+  const saveSessionAttendance = () => {
+    const ts = new Date().toISOString();
+    const newRecords: AttendanceRecord[] = attStudents.map((s) => ({
+      studentId: s.id,
+      date: attDate,
+      status: dailyAtt[s.id] ?? "absent",
+      method:
+        sessionEntries.find((e) => e.studentId === s.id)?.method ?? "manual",
+      timestamp:
+        sessionEntries.find((e) => e.studentId === s.id)?.timestamp ?? ts,
+    }));
+    setAttendanceRecords((p) => [
+      ...p.filter(
+        (r) =>
+          !(
+            r.date === attDate &&
+            newRecords.some((n) => n.studentId === r.studentId)
+          ),
+      ),
+      ...newRecords,
+    ]);
+    setAttSaved(true);
+    setTimeout(() => setAttSaved(false), 2500);
   };
 
   // ── Sidebar nav items ──
@@ -1207,6 +1969,14 @@ export default function StudentInfoModule() {
                         sf("universityBoardRollNo", e.target.value)
                       }
                       data-ocid="student.univ_roll.input"
+                    />
+                  </Field>
+                  <Field label="RFID Card ID">
+                    <Input
+                      value={studentForm.rfidCardId}
+                      onChange={(e) => sf("rfidCardId", e.target.value)}
+                      placeholder="RFID card number"
+                      data-ocid="student.rfid.input"
                     />
                   </Field>
                 </FieldGrid>
@@ -1928,9 +2698,24 @@ export default function StudentInfoModule() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  className="h-7 w-7 p-0 text-primary"
+                                  onClick={() =>
+                                    setQrStudentQRModal({
+                                      admissionNo: s.admissionNo,
+                                      name: s.name,
+                                    })
+                                  }
+                                  title="Show QR Code"
+                                  data-ocid={`students.secondary_button.${i + 1}`}
+                                >
+                                  <QrCode size={13} />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   className="h-7 w-7 p-0"
                                   onClick={() => openEditStudent(s)}
-                                  data-ocid={`students.secondary_button.${i + 1}`}
+                                  data-ocid={`students.edit_button.${i + 1}`}
                                 >
                                   <Pencil size={13} />
                                 </Button>
@@ -1962,163 +2747,27 @@ export default function StudentInfoModule() {
 
         {/* ── 4. Student Attendance ── */}
         {activeSection === "attendance" && (
-          <div>
-            <SectionHeader
-              title="Student Attendance"
-              subtitle="Mark daily attendance for students"
-            />
-            <div className="flex flex-wrap gap-3 mb-5">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Date
-                </Label>
-                <Input
-                  type="date"
-                  value={attDate}
-                  onChange={(e) => setAttDate(e.target.value)}
-                  className="w-40"
-                  data-ocid="attendance.input"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Course
-                </Label>
-                <Select value={attCourse} onValueChange={setAttCourse}>
-                  <SelectTrigger className="w-32" data-ocid="attendance.select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Courses</SelectItem>
-                    {COURSES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Sem/Year
-                </Label>
-                <Select value={attSemYear} onValueChange={setAttSemYear}>
-                  <SelectTrigger
-                    className="w-32"
-                    data-ocid="attendance.secondary_button"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Years</SelectItem>
-                    {SEM_YEARS.map((y) => (
-                      <SelectItem key={y} value={y}>
-                        {y}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="flex gap-3 mb-4">
-              {["present", "absent", "late", "half-day"].map((status) => {
-                const count = attStudents.filter(
-                  (s) => (dailyAtt[s.id] ?? "present") === status,
-                ).length;
-                const colors: Record<string, string> = {
-                  present: "bg-green-500/10 text-green-700 border-green-200",
-                  absent: "bg-red-500/10 text-red-700 border-red-200",
-                  late: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
-                  "half-day": "bg-blue-500/10 text-blue-700 border-blue-200",
-                };
-                return (
-                  <div
-                    key={status}
-                    className={`px-3 py-1.5 rounded-md border text-sm font-medium capitalize ${colors[status]}`}
-                  >
-                    {status}: {count}
-                  </div>
-                );
-              })}
-            </div>
-
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Photo</TableHead>
-                      <TableHead>Roll No</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Present</TableHead>
-                      <TableHead>Absent</TableHead>
-                      <TableHead>Late</TableHead>
-                      <TableHead>Half-Day</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {attStudents.map((s, i) => (
-                      <TableRow
-                        key={s.id}
-                        data-ocid={`attendance.item.${i + 1}`}
-                      >
-                        <TableCell>
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={s.photoUrl} />
-                            <AvatarFallback className="text-xs">
-                              {s.name[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {s.rollNo}
-                        </TableCell>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {s.course}
-                        </TableCell>
-                        {(
-                          ["present", "absent", "late", "half-day"] as const
-                        ).map((status) => (
-                          <TableCell key={status}>
-                            <input
-                              type="radio"
-                              name={`att_${s.id}`}
-                              checked={(dailyAtt[s.id] ?? "present") === status}
-                              onChange={() =>
-                                setDailyAtt((p) => ({ ...p, [s.id]: status }))
-                              }
-                              className="w-4 h-4 accent-primary"
-                              data-ocid={`attendance.radio.${i + 1}`}
-                            />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-            <div className="mt-4 flex gap-3 items-center">
-              <Button
-                onClick={saveAttendance}
-                data-ocid="attendance.submit_button"
-              >
-                Save Attendance
-              </Button>
-              {attSaved && (
-                <span
-                  className="text-sm text-green-600 font-medium"
-                  data-ocid="attendance.success_state"
-                >
-                  ✓ Attendance saved!
-                </span>
-              )}
-            </div>
-          </div>
+          <AttendanceSection
+            attDate={attDate}
+            setAttDate={setAttDate}
+            attCourse={attCourse}
+            setAttCourse={setAttCourse}
+            attSemYear={attSemYear}
+            setAttSemYear={setAttSemYear}
+            attStudents={attStudents}
+            dailyAtt={dailyAtt}
+            setDailyAtt={setDailyAtt}
+            sessionEntries={sessionEntries}
+            attMode={attMode}
+            setAttMode={setAttMode}
+            rfidInput={rfidInput}
+            setRfidInput={setRfidInput}
+            rfidInputRef={rfidInputRef}
+            handleRFIDInput={handleRFIDInput}
+            processQRScan={processQRScan}
+            saveSessionAttendance={saveSessionAttendance}
+            attSaved={attSaved}
+          />
         )}
 
         {/* ── 5. Attendance Report ── */}
@@ -2954,6 +3603,47 @@ export default function StudentInfoModule() {
                 <Pencil size={14} className="mr-1" /> Edit
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Student QR Code Dialog ── */}
+      <Dialog
+        open={!!qrStudentQRModal}
+        onOpenChange={() => setQrStudentQRModal(null)}
+      >
+        <DialogContent data-ocid="student.qr.dialog" className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Student QR Code</DialogTitle>
+          </DialogHeader>
+          {qrStudentQRModal && (
+            <div className="flex flex-col items-center gap-3 py-2">
+              <p className="text-sm text-muted-foreground text-center">
+                {qrStudentQRModal.name}
+              </p>
+              <div className="border-4 border-primary/20 rounded-lg p-2">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=STUDENT:${encodeURIComponent(qrStudentQRModal.admissionNo)}`}
+                  alt="Student QR Code"
+                  className="w-48 h-48"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground font-mono">
+                STUDENT:{qrStudentQRModal.admissionNo}
+              </p>
+              <p className="text-xs text-center text-muted-foreground">
+                Scan this QR code during attendance
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setQrStudentQRModal(null)}
+              data-ocid="student.qr.close_button"
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

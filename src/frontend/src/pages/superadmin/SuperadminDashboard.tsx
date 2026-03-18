@@ -32,6 +32,7 @@ import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
 import type { School } from "../../types";
 import UserAccountsModule from "../admin/UserAccountsModule";
+import SuperadminSettings from "./SuperadminSettings";
 
 type Section = "dashboard" | "schools" | "settings" | "accounts";
 
@@ -237,11 +238,7 @@ export default function SuperadminDashboard() {
         {section === "dashboard" && renderDashboard()}
         {section === "schools" && renderSchools()}
         {section === "accounts" && <UserAccountsModule />}
-        {section === "settings" && (
-          <div className="text-muted-foreground">
-            System Settings coming soon.
-          </div>
-        )}
+        {section === "settings" && <SuperadminSettings />}
       </Layout>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>

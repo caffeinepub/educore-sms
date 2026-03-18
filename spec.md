@@ -1,43 +1,30 @@
 # EduCore SMS
 
 ## Current State
-The app has a demo login page where users pick a name and role from a dropdown — no real authentication. There is no password system, no user account management, and no per-user credentials. All role data is mock data stored in localStorage. The Admin, Superadmin, and other dashboards exist with full module functionality.
+Student Attendance section exists in StudentInfoModule.tsx with basic manual daily attendance (select course/sem, mark Present/Absent/Late/Half-Day per student, save). No QR code or RFID support.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Proper email + password login form replacing the demo role selector
-- UserAccount type: id, email, password (hashed/stored), role, linkedId (studentId/staffId), schoolId, mustChangePassword (bool), isActive (bool), createdAt
-- Seed user accounts in mockData for all existing students and staff (email from their records, default password Welcome@123, mustChangePassword: true)
-- Admin accounts for each school seeded with known credentials
-- Force password change screen: shown after login when mustChangePassword === true; user must set a new password before proceeding
-- Change Password section: available from sidebar/profile for all logged-in users
-- Admin "User Accounts" module section in AdminDashboard: table of all user accounts for the school, with columns for Name, Email, Role, Status, Last Login; actions: Edit email, Delete account, Force Reset password (sets back to Welcome@123 + mustChangePassword = true)
-- Superadmin sees user accounts across all schools
-- Auto-create account when Admin adds a student or staff record (email from the form, default password Welcome@123, mustChangePassword: true)
-- Account deletion is independent of disabling a student (both can coexist)
-- In-memory/localStorage persistence for accounts
+- **QR Code Attendance Mode**: Camera-based QR scanner (using existing qr-code component). Each student has a unique QR code (based on Roll No / Admission No). When scanned, system auto-marks that student as Present with timestamp. Multiple scans possible in session.
+- **RFID Attendance Mode**: Text input field simulating RFID reader input (USB HID device sends card ID as keypress + Enter). Admin/Teacher enters or scanner auto-types the RFID/card ID and system looks up the student and marks attendance.
+- **Attendance Mode Selector**: Three tab/button modes -- Manual, QR Scan, RFID.
+- **Session Management**: Select Date, Course, Sem/Year before starting attendance in any mode.
+- **Live Attendance Log**: Real-time list showing students marked in current session with timestamp and method used (Manual/QR/RFID).
+- **Student QR Codes**: In Student List, each student can view/print their personal attendance QR code.
 
 ### Modify
-- LoginPage: replace demo name+role selector with email + password fields; on submit, look up user account by email, validate password, set session
-- AppContext: add userAccounts state, setUserAccounts; login logic validates credentials; logout clears session
-- Layout: add "Change Password" option in sidebar user area / profile dropdown
-- AdminDashboard: add "User Accounts" section to sidebar nav
-- StudentInfoModule: when adding a student, auto-create a user account for that student
-- HRModule: when adding a staff member, auto-create a user account for that staff member
+- StudentInfoModule.tsx -- Replace attendance section with enhanced multi-mode attendance UI
+- Attendance state model -- Add `method` field (manual/qr/rfid) and `timestamp` to attendance records
 
 ### Remove
-- Demo role selector and name input from login page
-- Free-login without credentials
+- Nothing removed; existing manual attendance logic is preserved and improved
 
 ## Implementation Plan
-1. Add UserAccount type to types/index.ts
-2. Seed user accounts in mockData.ts for all existing students, staff, admin accounts
-3. Update AppContext to store userAccounts, handle login/logout via credential validation, track mustChangePassword
-4. Replace LoginPage with email+password form; show errors on invalid credentials
-5. Add ForceChangePassword component shown after login when mustChangePassword is true
-6. Add ChangePassword component accessible from the sidebar
-7. Add UserAccountsModule component for Admin (view all accounts, edit email, delete, force reset)
-8. Wire UserAccountsModule into AdminDashboard and SuperadminDashboard
-9. Update StudentInfoModule to auto-create account on student add
-10. Update HRModule to auto-create account on staff add
+1. Add `method` and `timestamp` fields to AttendanceRecord interface
+2. Add attendance mode state: 'manual' | 'qr' | 'rfid'
+3. Build Manual mode: existing UI improved with bulk select all / clear
+4. Build QR Scan mode: camera view using @zxing/browser or jsQR, decode QR → match student by rollNo/admissionNo → auto-mark present
+5. Build RFID mode: focused text input that captures card ID on Enter keypress → lookup student → mark present
+6. Build live attendance log panel showing current session marks with method badge and time
+7. Add student QR code display in Student List profile view
