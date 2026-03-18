@@ -12,6 +12,7 @@ import {
   FileText,
   GraduationCap,
   Home,
+  KeyRound,
   LayoutDashboard,
   Library,
   LogOut,
@@ -26,6 +27,7 @@ import {
 import type React from "react";
 import { useState } from "react";
 import { useApp } from "../contexts/AppContext";
+import ChangePasswordPage from "../pages/ChangePasswordPage";
 import type { AppRole } from "../types";
 
 interface NavItem {
@@ -47,6 +49,11 @@ function getNavItems(role: AppRole): NavItem[] {
       return [
         ...common,
         { label: "Schools", icon: <Building2 size={18} />, section: "schools" },
+        {
+          label: "User Accounts",
+          icon: <UserCog size={18} />,
+          section: "accounts",
+        },
         {
           label: "System Settings",
           icon: <Settings size={18} />,
@@ -87,6 +94,11 @@ function getNavItems(role: AppRole): NavItem[] {
           label: "Front Office",
           icon: <Building2 size={18} />,
           section: "frontoffice",
+        },
+        {
+          label: "User Accounts",
+          icon: <KeyRound size={18} />,
+          section: "accounts",
         },
         { label: "Reports", icon: <BarChart3 size={18} />, section: "reports" },
       ];
@@ -279,6 +291,7 @@ export default function Layout({
 }: LayoutProps) {
   const { userProfile, setUserProfile } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(false);
   const role = userProfile?.role ?? "admin";
   const navItems = getNavItems(role);
 
@@ -369,6 +382,16 @@ export default function Layout({
           </div>
           <button
             type="button"
+            data-ocid="nav.change_password.button"
+            onClick={() => setShowChangePw(true)}
+            className="p-1.5 rounded hover:bg-white/10 transition-colors"
+            style={{ color: "oklch(var(--sidebar-foreground))" }}
+            title="Change Password"
+          >
+            <KeyRound size={16} />
+          </button>
+          <button
+            type="button"
             data-ocid="nav.logout.button"
             onClick={() => setUserProfile(null)}
             className="p-1.5 rounded hover:bg-white/10 transition-colors"
@@ -383,59 +406,75 @@ export default function Layout({
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-60 flex-col flex-shrink-0">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile Sidebar */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-60 p-0 border-none">
+    <>
+      <div className="flex h-screen overflow-hidden bg-background">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:flex w-60 flex-col flex-shrink-0">
           <SidebarContent />
-        </SheetContent>
-      </Sheet>
+        </aside>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border flex-shrink-0">
-          <Sheet>
-            <SheetTrigger asChild>
+        {/* Mobile Sidebar */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-60 p-0 border-none">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+
+        {/* Main */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Header */}
+          <header className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border flex-shrink-0">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  onClick={() => setMobileOpen(true)}
+                  data-ocid="nav.menu.button"
+                >
+                  <Menu size={20} />
+                </Button>
+              </SheetTrigger>
+            </Sheet>
+            <div className="flex-1">
+              <h1 className="text-base font-semibold text-foreground">
+                {schoolName}
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground hidden sm:block">
+                {userProfile?.name}
+              </span>
               <Button
                 variant="ghost"
-                size="icon"
-                className="lg:hidden"
-                onClick={() => setMobileOpen(true)}
-                data-ocid="nav.menu.button"
+                size="sm"
+                onClick={() => setShowChangePw(true)}
+                data-ocid="header.change_password.button"
+                title="Change Password"
               >
-                <Menu size={20} />
+                <KeyRound size={14} />
               </Button>
-            </SheetTrigger>
-          </Sheet>
-          <div className="flex-1">
-            <h1 className="text-base font-semibold text-foreground">
-              {schoolName}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              {userProfile?.name}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setUserProfile(null)}
-              data-ocid="header.logout.button"
-            >
-              <LogOut size={14} className="mr-1" /> Logout
-            </Button>
-          </div>
-        </header>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setUserProfile(null)}
+                data-ocid="header.logout.button"
+              >
+                <LogOut size={14} className="mr-1" /> Logout
+              </Button>
+            </div>
+          </header>
 
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+          {/* Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        </div>
       </div>
-    </div>
+
+      <ChangePasswordPage
+        open={showChangePw}
+        onClose={() => setShowChangePw(false)}
+      />
+    </>
   );
 }

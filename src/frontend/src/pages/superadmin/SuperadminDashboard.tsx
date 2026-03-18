@@ -22,7 +22,6 @@ import {
 import {
   Building2,
   DollarSign,
-  Edit,
   Pencil,
   Plus,
   UserCog,
@@ -32,8 +31,9 @@ import React, { useState } from "react";
 import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
 import type { School } from "../../types";
+import UserAccountsModule from "../admin/UserAccountsModule";
 
-type Section = "dashboard" | "schools" | "settings";
+type Section = "dashboard" | "schools" | "settings" | "accounts";
 
 export default function SuperadminDashboard() {
   const { schools: initialSchools } = useApp();
@@ -119,10 +119,7 @@ export default function SuperadminDashboard() {
             color: "text-amber-600",
           },
         ].map((stat) => (
-          <Card
-            key={stat.label}
-            data-ocid={`superadmin.stat.card.${stat.label}`}
-          >
+          <Card key={stat.label} data-ocid={"superadmin.stat.card"}>
             <CardContent className="pt-4">
               <div className={`${stat.color} mb-2`}>{stat.icon}</div>
               <div className="text-2xl font-bold">{stat.value}</div>
@@ -146,10 +143,10 @@ export default function SuperadminDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {schools.map((s) => (
+              {schools.map((s, i) => (
                 <TableRow
                   key={s.id}
-                  data-ocid={`superadmin.schools.row.${s.id}`}
+                  data-ocid={`superadmin.schools.item.${i + 1}`}
                 >
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell>{s.studentCount}</TableCell>
@@ -239,6 +236,7 @@ export default function SuperadminDashboard() {
       >
         {section === "dashboard" && renderDashboard()}
         {section === "schools" && renderSchools()}
+        {section === "accounts" && <UserAccountsModule />}
         {section === "settings" && (
           <div className="text-muted-foreground">
             System Settings coming soon.

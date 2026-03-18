@@ -16,6 +16,20 @@ export interface UserProfile {
   childrenIds?: string[];
 }
 
+export interface UserAccount {
+  id: string;
+  email: string;
+  password: string;
+  role: AppRole;
+  name: string;
+  schoolId: string;
+  linkedId?: string;
+  mustChangePassword: boolean;
+  isActive: boolean;
+  createdAt: string;
+  lastLogin?: string;
+}
+
 export interface School {
   id: string;
   name: string;

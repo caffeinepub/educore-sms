@@ -8,48 +8,29 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { GraduationCap } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Lock, Mail } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { useApp } from "../contexts/AppContext";
-import type { AppRole } from "../types";
-
-const roles: { value: AppRole; label: string; desc: string }[] = [
-  { value: "superadmin", label: "Super Admin", desc: "Manage all schools" },
-  { value: "admin", label: "Admin", desc: "School administrator" },
-  { value: "teacher", label: "Teacher", desc: "Manage classes & marks" },
-  { value: "accountant", label: "Accountant", desc: "Manage fees & accounts" },
-  { value: "librarian", label: "Librarian", desc: "Manage library" },
-  { value: "student", label: "Student", desc: "View personal records" },
-  { value: "parent", label: "Parent", desc: "View child's records" },
-];
 
 export default function LoginPage() {
-  const { setUserProfile } = useApp();
-  const [name, setName] = useState("");
-  const [role, setRole] = useState<AppRole | "">("");
+  const { login } = useApp();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !role) return;
+    if (!email.trim() || !password.trim()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setUserProfile({
-      name: name.trim(),
-      role: role as AppRole,
-      schoolId: "s1",
-      staffId: role === "teacher" ? "st1" : undefined,
-      studentId: role === "student" ? "stu1" : undefined,
-      childrenIds: role === "parent" ? ["stu1", "stu2"] : [],
-    });
+    setError("");
+    await new Promise((r) => setTimeout(r, 400));
+    const result = login(email.trim(), password);
+    if (!result.success) {
+      setError(result.error ?? "Login failed");
+    }
     setLoading(false);
   };
 
@@ -73,7 +54,7 @@ export default function LoginPage() {
             {[
               "Multi-school management with isolated data",
               "Role-based dashboards for every stakeholder",
-              "5 core modules: Students, Academics, Fees, Exams & HR",
+              "Library, HR, Students, Front Office & more",
             ].map((f) => (
               <div key={f} className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -85,8 +66,8 @@ export default function LoginPage() {
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { n: "3", l: "Schools" },
-              { n: "420+", l: "Students" },
+              { n: "2", l: "Schools" },
+              { n: "10+", l: "Staff" },
               { n: "7", l: "Roles" },
             ].map((s) => (
               <div
@@ -109,56 +90,97 @@ export default function LoginPage() {
               </div>
               <span className="font-bold text-lg">EduCore SMS</span>
             </div>
-            <CardTitle className="text-xl">Demo Login</CardTitle>
+            <CardTitle className="text-xl">Sign In</CardTitle>
             <CardDescription>
-              Select a role to explore the system
+              Enter your email and password to access your account
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="name">Your Name</Label>
-                <Input
-                  id="name"
-                  data-ocid="login.name.input"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <Mail
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    id="email"
+                    type="email"
+                    data-ocid="login.input"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-9"
+                    required
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Role</Label>
-                <Select
-                  value={role}
-                  onValueChange={(v) => setRole(v as AppRole)}
-                >
-                  <SelectTrigger data-ocid="login.role.select">
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((r) => (
-                      <SelectItem key={r.value} value={r.value}>
-                        <div>
-                          <div className="font-medium">{r.label}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {r.desc}
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    data-ocid="login.textarea"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-9 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-ocid="login.toggle"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
+
+              {error && (
+                <div
+                  className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2"
+                  data-ocid="login.error_state"
+                >
+                  {error}
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!name.trim() || !role || loading}
+                disabled={!email.trim() || !password.trim() || loading}
                 data-ocid="login.submit_button"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
+
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground font-medium mb-1">
+                Demo Credentials:
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Admin: <span className="font-mono">admin@greenwood.edu</span> /{" "}
+                <span className="font-mono">Admin@123</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Superadmin:{" "}
+                <span className="font-mono">superadmin@educore.in</span> /{" "}
+                <span className="font-mono">Admin@123</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Teacher: <span className="font-mono">james@greenwood.edu</span>{" "}
+                / <span className="font-mono">Welcome@123</span>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

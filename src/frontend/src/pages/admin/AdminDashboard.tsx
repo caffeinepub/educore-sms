@@ -3,7 +3,6 @@ import {
   BookOpen,
   ClipboardList,
   DollarSign,
-  TrendingUp,
   UserCog,
   Users,
 } from "lucide-react";
@@ -18,6 +17,7 @@ import ExaminationModule from "./ExaminationModule";
 import FeesModule from "./FeesModule";
 import HRModule from "./HRModule";
 import StudentInfoModule from "./StudentInfoModule";
+import UserAccountsModule from "./UserAccountsModule";
 
 type Section =
   | "dashboard"
@@ -29,7 +29,8 @@ type Section =
   | "reports"
   | "communication"
   | "library"
-  | "frontoffice";
+  | "frontoffice"
+  | "accounts";
 
 export default function AdminDashboard() {
   const {
@@ -88,7 +89,7 @@ export default function AdminDashboard() {
             bg: "bg-amber-50",
           },
         ].map((stat) => (
-          <Card key={stat.label} data-ocid={`admin.stat.card.${stat.label}`}>
+          <Card key={stat.label} data-ocid={"admin.stat.card"}>
             <CardContent className="pt-4">
               <div
                 className={`w-10 h-10 rounded-lg ${stat.bg} ${stat.color} flex items-center justify-center mb-3`}
@@ -186,6 +187,7 @@ export default function AdminDashboard() {
       {section === "communication" && <CommunicationModule />}
       {section === "library" && <AdminLibraryModule />}
       {section === "frontoffice" && <FrontOfficePage />}
+      {section === "accounts" && <UserAccountsModule />}
       {section === "reports" && (
         <div className="text-muted-foreground p-4">
           Reports module coming in next phase.

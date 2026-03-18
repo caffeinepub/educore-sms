@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import React from "react";
 import { AppProvider, useApp } from "./contexts/AppContext";
+import ForceChangePassword from "./pages/ForceChangePassword";
 import LoginPage from "./pages/LoginPage";
 import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -11,7 +12,7 @@ import SuperadminDashboard from "./pages/superadmin/SuperadminDashboard";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 
 function AppRouter() {
-  const { userProfile, isLoading } = useApp();
+  const { userProfile, isLoading, mustChangePassword } = useApp();
 
   if (isLoading) {
     return (
@@ -29,6 +30,8 @@ function AppRouter() {
   }
 
   if (!userProfile) return <LoginPage />;
+
+  if (mustChangePassword) return <ForceChangePassword />;
 
   switch (userProfile.role) {
     case "superadmin":
