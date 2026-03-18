@@ -16,8 +16,10 @@ import {
   Library,
   LogOut,
   Menu,
+  MessageCircle,
   MessageSquare,
   Settings,
+  UserCheck,
   UserCog,
   Users,
 } from "lucide-react";
@@ -80,6 +82,12 @@ function getNavItems(role: AppRole): NavItem[] {
           icon: <MessageSquare size={18} />,
           section: "communication",
         },
+        { label: "Library", icon: <Library size={18} />, section: "library" },
+        {
+          label: "Front Office",
+          icon: <Building2 size={18} />,
+          section: "frontoffice",
+        },
         { label: "Reports", icon: <BarChart3 size={18} />, section: "reports" },
       ];
     case "teacher":
@@ -114,6 +122,16 @@ function getNavItems(role: AppRole): NavItem[] {
           label: "Communication",
           icon: <MessageSquare size={18} />,
           section: "communication",
+        },
+        {
+          label: "Front Office",
+          icon: <Building2 size={18} />,
+          section: "frontoffice",
+        },
+        {
+          label: "My HR",
+          icon: <UserCheck size={18} />,
+          section: "myhr",
         },
       ];
     case "accountant":
@@ -168,6 +186,11 @@ function getNavItems(role: AppRole): NavItem[] {
       return [
         ...common,
         {
+          label: "Attendance",
+          icon: <Users size={18} />,
+          section: "attendance",
+        },
+        {
           label: "My Schedule",
           icon: <Calendar size={18} />,
           section: "schedule",
@@ -176,11 +199,6 @@ function getNavItems(role: AppRole): NavItem[] {
           label: "My Marks",
           icon: <GraduationCap size={18} />,
           section: "marks",
-        },
-        {
-          label: "Attendance",
-          icon: <Users size={18} />,
-          section: "attendance",
         },
         {
           label: "Study Materials",
@@ -192,34 +210,44 @@ function getNavItems(role: AppRole): NavItem[] {
           icon: <FileText size={18} />,
           section: "assignments",
         },
+        { label: "Library", icon: <Library size={18} />, section: "library" },
         { label: "My Fees", icon: <DollarSign size={18} />, section: "fees" },
         {
           label: "Communication",
           icon: <MessageSquare size={18} />,
           section: "communication",
         },
-        { label: "Library", icon: <Library size={18} />, section: "library" },
+        {
+          label: "Complaints & Enquiries",
+          icon: <MessageCircle size={18} />,
+          section: "frontoffice",
+        },
       ];
     case "parent":
       return [
         ...common,
         {
-          label: "Child Marks",
-          icon: <GraduationCap size={18} />,
-          section: "marks",
-        },
-        {
           label: "Attendance",
           icon: <Users size={18} />,
           section: "attendance",
         },
+        {
+          label: "Child Marks",
+          icon: <GraduationCap size={18} />,
+          section: "marks",
+        },
         { label: "Fee", icon: <DollarSign size={18} />, section: "fees" },
+        { label: "Library", icon: <Library size={18} />, section: "library" },
         {
           label: "Communication",
           icon: <MessageSquare size={18} />,
           section: "communication",
         },
-        { label: "Library", icon: <Library size={18} />, section: "library" },
+        {
+          label: "Complaints & Enquiries",
+          icon: <MessageCircle size={18} />,
+          section: "frontoffice",
+        },
       ];
     default:
       return common;

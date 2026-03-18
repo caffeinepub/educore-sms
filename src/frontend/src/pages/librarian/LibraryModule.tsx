@@ -203,6 +203,7 @@ function BarcodeScannerDialog({
   onReturn: (issueId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [scannedBook, setScannedBook] = useState<Book | null>(null);
   const [scanStudentId, setScanStudentId] = useState("");
   const [scanDueDate, setScanDueDate] = useState(() => {
@@ -210,6 +211,14 @@ function BarcodeScannerDialog({
     d.setDate(d.getDate() + 14);
     return d.toISOString().split("T")[0];
   });
+  const [manualInput, setManualInput] = useState("");
+  const [manualError, setManualError] = useState("");
+
+  // BarcodeDetector support
+  const barcodeDetectorRef = useRef<any>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nativeScanSupported =
+    typeof window !== "undefined" && "BarcodeDetector" in window;
 
   const {
     qrResults,
@@ -229,31 +238,99 @@ function BarcodeScannerDialog({
     maxResults: 3,
   });
 
+  function resolveBook(data: string) {
+    const found = books.find(
+      (b) =>
+        b.accessionNumber === data ||
+        b.isbn === data ||
+        b.id === data ||
+        (b as any).qrData === data,
+    );
+    if (found) {
+      setScannedBook(found);
+      stopNativeScan();
+      stopScanning();
+    }
+  }
+
+  function startNativeScan() {
+    if (!nativeScanSupported || !videoRef.current) return;
+    try {
+      if (!barcodeDetectorRef.current) {
+        barcodeDetectorRef.current = new (window as any).BarcodeDetector({
+          formats: [
+            "qr_code",
+            "code_128",
+            "code_39",
+            "ean_13",
+            "ean_8",
+            "itf",
+            "pdf417",
+            "aztec",
+            "data_matrix",
+          ],
+        });
+      }
+      scanIntervalRef.current = setInterval(async () => {
+        if (!videoRef.current || scannedBook) return;
+        try {
+          const barcodes = await barcodeDetectorRef.current.detect(
+            videoRef.current,
+          );
+          if (barcodes.length > 0) {
+            resolveBook(barcodes[0].rawValue);
+          }
+        } catch (_e) {
+          // ignore detection errors
+        }
+      }, 300);
+    } catch (_e) {
+      // BarcodeDetector instantiation failed, fallback handled by jsQR
+    }
+  }
+
+  function stopNativeScan() {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+  }
+
+  // Fallback: watch jsQR results when BarcodeDetector is not available
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resolveBook is stable
+  useEffect(() => {
+    if (!nativeScanSupported && qrResults.length > 0 && !scannedBook) {
+      resolveBook(qrResults[0].data);
+    }
+  }, [qrResults]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: scanner functions are stable refs
   useEffect(() => {
-    if (open) {
+    if (open && mode === "camera") {
       startScanning();
     } else {
+      stopNativeScan();
       stopScanning();
+    }
+    if (!open) {
       setScannedBook(null);
       setScanStudentId("");
       clearResults();
+      setManualInput("");
+      setManualError("");
     }
-  }, [open]);
+  }, [open, mode]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scan once, stable refs
+  // Start native scan loop once video is streaming
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stable refs
   useEffect(() => {
-    if (qrResults.length > 0) {
-      const data = qrResults[0].data;
-      const found = books.find(
-        (b) => b.accessionNumber === data || b.qrData === data || b.id === data,
-      );
-      if (found && !scannedBook) {
-        setScannedBook(found);
-        stopScanning();
-      }
+    if (isScanning && nativeScanSupported && mode === "camera") {
+      startNativeScan();
     }
-  }, [qrResults]);
+    return () => {
+      stopNativeScan();
+    };
+  }, [isScanning]);
 
   const activeIssue = scannedBook
     ? issues.find((i) => i.bookId === scannedBook.id && i.returnDate === null)
@@ -275,7 +352,27 @@ function BarcodeScannerDialog({
     setScannedBook(null);
     setScanStudentId("");
     clearResults();
-    startScanning();
+    setManualInput("");
+    setManualError("");
+    if (mode === "camera") {
+      startScanning();
+    }
+  }
+
+  function handleManualLookup() {
+    const query = manualInput.trim();
+    if (!query) return;
+    const found = books.find(
+      (b) => b.accessionNumber === query || b.isbn === query || b.id === query,
+    );
+    if (found) {
+      setScannedBook(found);
+      setManualError("");
+    } else {
+      setManualError(
+        `No book found for "${query}". Check the accession number or ISBN.`,
+      );
+    }
   }
 
   return (
@@ -296,24 +393,75 @@ function BarcodeScannerDialog({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {isSupported === false ? (
-              <p className="text-destructive text-sm">
-                Camera not supported on this device.
-              </p>
-            ) : null}
-            {error ? (
-              <p
-                className="text-destructive text-sm"
-                data-ocid="library.scanner.error_state"
-              >
-                {error.message}
-              </p>
-            ) : null}
-            {!scannedBook ? (
+            {/* Mode toggle */}
+            {!scannedBook && (
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setMode("camera")}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                    mode === "camera"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-ocid="library.scanner.tab"
+                >
+                  <Camera size={14} /> Camera Scan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("manual")}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                    mode === "manual"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-ocid="library.scanner.toggle"
+                >
+                  <ScanLine size={14} /> Manual Entry
+                </button>
+              </div>
+            )}
+
+            {/* Warning: linear barcode needs BarcodeDetector */}
+            {mode === "camera" && !nativeScanSupported && !scannedBook && (
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 flex gap-2">
+                <span>⚠️</span>
+                <span>
+                  <strong>Linear barcode scanning requires Chrome.</strong> Use{" "}
+                  <button
+                    type="button"
+                    className="underline font-medium"
+                    onClick={() => setMode("manual")}
+                  >
+                    Manual Entry
+                  </button>{" "}
+                  for barcode labels, or switch to a QR code.
+                </span>
+              </div>
+            )}
+
+            {/* Camera mode */}
+            {mode === "camera" && !scannedBook && (
               <div className="space-y-2">
+                {isSupported === false ? (
+                  <p className="text-destructive text-sm">
+                    Camera not supported on this device.
+                  </p>
+                ) : null}
+                {error ? (
+                  <p
+                    className="text-destructive text-sm"
+                    data-ocid="library.scanner.error_state"
+                  >
+                    {error.message}
+                  </p>
+                ) : null}
                 <p className="text-sm text-muted-foreground">
                   {isScanning
-                    ? "Scanning… point camera at a barcode/QR code"
+                    ? nativeScanSupported
+                      ? "Scanning… supports QR codes and linear barcodes"
+                      : "Scanning… QR codes only (jsQR fallback)"
                     : isLoading
                       ? "Starting camera…"
                       : "Camera ready"}
@@ -342,7 +490,53 @@ function BarcodeScannerDialog({
                   </Button>
                 )}
               </div>
-            ) : (
+            )}
+
+            {/* Manual entry mode */}
+            {mode === "manual" && !scannedBook && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Enter accession number or ISBN manually, or use a USB barcode
+                  scanner — it outputs keyboard text automatically.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Accession No. / ISBN / Book ID"
+                    value={manualInput}
+                    onChange={(e) => {
+                      setManualInput(e.target.value);
+                      setManualError("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleManualLookup();
+                    }}
+                    autoFocus
+                    data-ocid="library.scanner.input"
+                  />
+                  <Button
+                    onClick={handleManualLookup}
+                    data-ocid="library.scanner.button"
+                  >
+                    Find
+                  </Button>
+                </div>
+                {manualError && (
+                  <p
+                    className="text-destructive text-sm"
+                    data-ocid="library.scanner.error_state"
+                  >
+                    {manualError}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground flex items-center gap-1 bg-muted/50 rounded px-3 py-2">
+                  <span>💡</span> Works with USB barcode scanners too — just
+                  scan the barcode label.
+                </p>
+              </div>
+            )}
+
+            {/* Resolved book details */}
+            {scannedBook && (
               <div className="space-y-3">
                 <Card>
                   <CardContent className="pt-4 space-y-1">
@@ -802,11 +996,8 @@ export default function LibraryModule() {
         )}
       </div>
 
-      <Tabs defaultValue="catalog">
+      <Tabs defaultValue="issue">
         <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="catalog" data-ocid="library.catalog.tab">
-            Catalog
-          </TabsTrigger>
           <TabsTrigger value="issue" data-ocid="library.issue.tab">
             Issue/Return
           </TabsTrigger>
@@ -816,23 +1007,26 @@ export default function LibraryModule() {
           >
             Reservations
           </TabsTrigger>
+          <TabsTrigger value="catalog" data-ocid="library.catalog.tab">
+            Catalog
+          </TabsTrigger>
+          <TabsTrigger value="inventory" data-ocid="library.inventory.tab">
+            Inventory
+          </TabsTrigger>
+          <TabsTrigger value="bulkprint" data-ocid="library.bulkprint.tab">
+            <Printer size={14} className="mr-1" /> Bulk Print
+          </TabsTrigger>
           <TabsTrigger value="fines" data-ocid="library.fines.tab">
             Fines
           </TabsTrigger>
           <TabsTrigger value="reports" data-ocid="library.reports.tab">
             Reports
           </TabsTrigger>
-          <TabsTrigger value="inventory" data-ocid="library.inventory.tab">
-            Inventory
-          </TabsTrigger>
           <TabsTrigger value="idcards" data-ocid="library.idcards.tab">
             ID Cards
           </TabsTrigger>
           <TabsTrigger value="settings" data-ocid="library.settings.tab">
             Settings
-          </TabsTrigger>
-          <TabsTrigger value="bulkprint" data-ocid="library.bulkprint.tab">
-            <Printer size={14} className="mr-1" /> Bulk Print
           </TabsTrigger>
         </TabsList>
 

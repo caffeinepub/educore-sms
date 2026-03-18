@@ -11,7 +11,9 @@ import React, { useState } from "react";
 import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
 import CommunicationModule from "../communication/CommunicationModule";
+import FrontOfficePage from "../frontoffice/FrontOfficePage";
 import AcademicsModule from "./AcademicsModule";
+import AdminLibraryModule from "./AdminLibraryModule";
 import ExaminationModule from "./ExaminationModule";
 import FeesModule from "./FeesModule";
 import HRModule from "./HRModule";
@@ -25,7 +27,9 @@ type Section =
   | "examination"
   | "hr"
   | "reports"
-  | "communication";
+  | "communication"
+  | "library"
+  | "frontoffice";
 
 export default function AdminDashboard() {
   const {
@@ -180,6 +184,8 @@ export default function AdminDashboard() {
       {section === "examination" && <ExaminationModule />}
       {section === "hr" && <HRModule />}
       {section === "communication" && <CommunicationModule />}
+      {section === "library" && <AdminLibraryModule />}
+      {section === "frontoffice" && <FrontOfficePage />}
       {section === "reports" && (
         <div className="text-muted-foreground p-4">
           Reports module coming in next phase.

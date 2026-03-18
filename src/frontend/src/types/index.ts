@@ -207,6 +207,10 @@ export interface Staff {
   schoolId: string;
   name: string;
   role: string;
+  staffType: "teaching" | "non-teaching";
+  designation: string;
+  qualification: string;
+  qrCode: string;
   department: string;
   phone: string;
   email: string;
@@ -221,7 +225,23 @@ export interface StaffAttendance {
   schoolId: string;
   staffId: string;
   date: string;
+  time?: string;
   status: "present" | "absent" | "late";
+  photoDataUrl?: string;
+  method?: "qr" | "manual";
+}
+
+export interface StaffLeave {
+  id: string;
+  schoolId: string;
+  staffId: string;
+  leaveType: "sick" | "casual" | "earned" | "other";
+  fromDate: string;
+  toDate: string;
+  days: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  appliedAt: string;
 }
 
 export interface Payroll {
@@ -236,6 +256,8 @@ export interface Payroll {
   netSalary: number;
   paymentDate: string;
   status: "pending" | "paid";
+  presentDays?: number;
+  absentDays?: number;
 }
 
 export interface Notice {

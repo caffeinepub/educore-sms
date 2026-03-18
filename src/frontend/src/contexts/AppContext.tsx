@@ -36,6 +36,7 @@ interface AppContextType {
   marksGrades: typeof mockData.marksGrades;
   staff: typeof mockData.staff;
   staffAttendance: typeof mockData.staffAttendance;
+  staffLeaves: typeof mockData.staffLeaves;
   payrolls: typeof mockData.payrolls;
   // communication
   noticesList: Notice[];

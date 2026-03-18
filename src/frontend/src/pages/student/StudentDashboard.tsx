@@ -20,6 +20,7 @@ import React, { useState } from "react";
 import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
 import CommunicationView from "../communication/CommunicationView";
+import FrontOfficePage from "../frontoffice/FrontOfficePage";
 import StudentLibraryView from "./StudentLibraryView";
 
 type Section =
@@ -31,7 +32,8 @@ type Section =
   | "assignments"
   | "fees"
   | "communication"
-  | "library";
+  | "library"
+  | "frontoffice";
 
 export default function StudentDashboard() {
   const {
@@ -46,7 +48,6 @@ export default function StudentDashboard() {
     examSchedules,
     classRoutines,
     attendanceRecords,
-    // currentSchoolId,
   } = useApp();
   const [section, setSection] = useState<Section>("dashboard");
 
@@ -488,6 +489,7 @@ export default function StudentDashboard() {
         </div>
       )}
       {section === "library" && <StudentLibraryView />}
+      {section === "frontoffice" && <FrontOfficePage />}
     </Layout>
   );
 }

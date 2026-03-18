@@ -1,8 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -16,12 +14,15 @@ import {
   Calendar,
   ClipboardList,
   FileText,
+  UserCheck,
   Users,
 } from "lucide-react";
 import React, { useState } from "react";
 import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
+import { staffLeaves } from "../../data/mockData";
 import CommunicationView from "../communication/CommunicationView";
+import FrontOfficePage from "../frontoffice/FrontOfficePage";
 
 type Section =
   | "dashboard"
@@ -30,7 +31,9 @@ type Section =
   | "marks"
   | "materials"
   | "assignments"
-  | "communication";
+  | "communication"
+  | "frontoffice"
+  | "myhr";
 
 export default function TeacherDashboard() {
   const {
@@ -42,7 +45,8 @@ export default function TeacherDashboard() {
     assignments,
     examSchedules,
     classRoutines,
-    // currentSchoolId,
+    staffAttendance,
+    payrolls,
   } = useApp();
   const [section, setSection] = useState<Section>("dashboard");
   const [attendance, setAttendance] = useState<
@@ -50,7 +54,6 @@ export default function TeacherDashboard() {
   >({});
 
   const staffId = userProfile?.staffId ?? "st1";
-  // Teacher's classes = classes where teacherId matches
   const myClasses = classes.filter((c) => c.teacherId === staffId);
   const myClassIds = myClasses.map((c) => c.id);
   const myStudents = students.filter((s) => myClassIds.includes(s.classId));
@@ -58,10 +61,35 @@ export default function TeacherDashboard() {
   const myAssignments = assignments.filter((a) => a.createdBy === staffId);
   const myExams = examSchedules.filter((e) => myClassIds.includes(e.classId));
 
+  // HR data for this teacher
+  const myAttendanceRecords = staffAttendance
+    .filter((a) => a.staffId === staffId)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 30);
+  const myLeaves = staffLeaves.filter((l) => l.staffId === staffId);
+  const myPayrolls = payrolls
+    .filter((p) => p.staffId === staffId)
+    .sort((a, b) => b.year - a.year || b.month - a.month);
+
   const getClassName = (id: string) =>
     classes.find((c) => c.id === id)?.name ?? id;
   const getSubjectName = (id: string) =>
     subjects.find((s) => s.id === id)?.name ?? id;
+
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 
   const renderDashboard = () => (
     <div className="space-y-6">
@@ -275,6 +303,190 @@ export default function TeacherDashboard() {
     </div>
   );
 
+  const renderMyHR = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold flex items-center gap-2">
+        <UserCheck size={22} /> My HR
+      </h2>
+
+      {/* Attendance History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">My Attendance (Recent)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myAttendanceRecords.length === 0 ? (
+            <p
+              className="text-muted-foreground text-sm"
+              data-ocid="myhr.attendance.empty_state"
+            >
+              No attendance records found.
+            </p>
+          ) : (
+            <Table data-ocid="myhr.attendance.table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Photo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {myAttendanceRecords.map((a, i) => (
+                  <TableRow
+                    key={a.id}
+                    data-ocid={`myhr.attendance.item.${i + 1}`}
+                  >
+                    <TableCell>{a.date}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {a.time ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          a.status === "present"
+                            ? "border-green-400 text-green-600"
+                            : a.status === "late"
+                              ? "border-amber-400 text-amber-600"
+                              : "border-red-400 text-red-600"
+                        }
+                      >
+                        {a.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="capitalize">
+                        {a.method ?? "manual"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {a.photoDataUrl ? (
+                        <img
+                          src={a.photoDataUrl}
+                          alt=""
+                          className="w-10 h-10 rounded object-cover border"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Leave Requests */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">My Leave Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myLeaves.length === 0 ? (
+            <p
+              className="text-muted-foreground text-sm"
+              data-ocid="myhr.leave.empty_state"
+            >
+              No leave applications.
+            </p>
+          ) : (
+            <Table data-ocid="myhr.leave.table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>From</TableHead>
+                  <TableHead>To</TableHead>
+                  <TableHead>Days</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {myLeaves.map((l, i) => (
+                  <TableRow key={l.id} data-ocid={`myhr.leave.item.${i + 1}`}>
+                    <TableCell className="capitalize">{l.leaveType}</TableCell>
+                    <TableCell>{l.fromDate}</TableCell>
+                    <TableCell>{l.toDate}</TableCell>
+                    <TableCell>{l.days}</TableCell>
+                    <TableCell className="max-w-[120px] truncate">
+                      {l.reason}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          l.status === "approved"
+                            ? "border-green-400 text-green-600"
+                            : l.status === "rejected"
+                              ? "border-red-400 text-red-600"
+                              : "border-amber-400 text-amber-600"
+                        }
+                      >
+                        {l.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Payslip Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Payslip Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myPayrolls.length === 0 ? (
+            <p
+              className="text-muted-foreground text-sm"
+              data-ocid="myhr.payroll.empty_state"
+            >
+              No payroll records found.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {myPayrolls.map((p, i) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                  data-ocid={`myhr.payroll.item.${i + 1}`}
+                >
+                  <div>
+                    <p className="font-semibold">
+                      {MONTHS[p.month - 1]} {p.year}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Present: {p.presentDays ?? "—"} days · Absent:{" "}
+                      {p.absentDays ?? "—"} days
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold">
+                      ₹{p.netSalary.toLocaleString()}
+                    </p>
+                    <Badge
+                      variant={p.status === "paid" ? "default" : "secondary"}
+                    >
+                      {p.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <Layout
       activeSection={section}
@@ -329,6 +541,8 @@ export default function TeacherDashboard() {
           </Card>
         </div>
       )}
+      {section === "frontoffice" && <FrontOfficePage />}
+      {section === "myhr" && renderMyHR()}
     </Layout>
   );
 }

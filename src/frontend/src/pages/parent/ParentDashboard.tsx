@@ -21,6 +21,7 @@ import React, { useState } from "react";
 import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
 import CommunicationView from "../communication/CommunicationView";
+import FrontOfficePage from "../frontoffice/FrontOfficePage";
 import ParentLibraryView from "./ParentLibraryView";
 
 type Section =
@@ -29,7 +30,8 @@ type Section =
   | "attendance"
   | "fees"
   | "communication"
-  | "library";
+  | "library"
+  | "frontoffice";
 
 export default function ParentDashboard() {
   const {
@@ -41,7 +43,6 @@ export default function ParentDashboard() {
     examSchedules,
     attendanceRecords,
     subjects,
-    // currentSchoolId,
   } = useApp();
   const [section, setSection] = useState<Section>("dashboard");
 
@@ -306,6 +307,7 @@ export default function ParentDashboard() {
         </div>
       )}
       {section === "library" && <ParentLibraryView />}
+      {section === "frontoffice" && <FrontOfficePage />}
     </Layout>
   );
 }
