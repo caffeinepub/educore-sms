@@ -20,6 +20,7 @@ import {
   MessageCircle,
   MessageSquare,
   Settings,
+  Upload,
   UserCheck,
   UserCog,
   Users,
@@ -101,6 +102,11 @@ function getNavItems(role: AppRole): NavItem[] {
           section: "accounts",
         },
         { label: "Reports", icon: <BarChart3 size={18} />, section: "reports" },
+        {
+          label: "Bulk Import",
+          icon: <Upload size={18} />,
+          section: "bulkimport",
+        },
       ];
     case "teacher":
       return [

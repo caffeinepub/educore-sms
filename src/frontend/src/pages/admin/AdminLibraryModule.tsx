@@ -24,6 +24,7 @@ import React, { useState } from "react";
 import { useApp } from "../../contexts/AppContext";
 import type { Staff } from "../../types";
 import LibraryModule from "../librarian/LibraryModule";
+import BulkImportModule from "./BulkImportModule";
 
 export default function AdminLibraryModule() {
   const { staff: allStaff, currentSchoolId } = useApp();
@@ -121,6 +122,12 @@ export default function AdminLibraryModule() {
           >
             Manage Librarians
           </TabsTrigger>
+          <TabsTrigger
+            value="bulk-import"
+            data-ocid="admin.library.bulk_import.tab"
+          >
+            Bulk Import
+          </TabsTrigger>
         </TabsList>
 
         {/* Full Library Module — all features available to admin */}
@@ -197,6 +204,11 @@ export default function AdminLibraryModule() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Bulk Import */}
+        <TabsContent value="bulk-import">
+          <BulkImportModule defaultTab="books" />
         </TabsContent>
       </Tabs>
 

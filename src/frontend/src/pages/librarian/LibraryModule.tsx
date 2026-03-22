@@ -30,11 +30,19 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   AlertTriangle,
   BookOpen,
   Camera,
   CheckCircle,
   Download,
+  Mail,
+  MessageCircle,
   Plus,
   Printer,
   QrCode,
@@ -980,6 +988,66 @@ export default function LibraryModule() {
 
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
+  const printChallan = (fine: LibraryFine) => {
+    const challanNo = `CHALLAN-${fine.id.slice(0, 6).toUpperCase()}`;
+    const win = window.open("", "_blank", "width=600,height=700");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Library Fine Challan</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; color: #111; }
+    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 20px; }
+    .school-name { font-size: 24px; font-weight: bold; }
+    .title { font-size: 18px; font-weight: bold; margin: 8px 0; letter-spacing: 2px; color: #555; }
+    .challan-no { font-size: 13px; color: #777; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    td { padding: 10px 12px; border: 1px solid #ddd; }
+    td:first-child { font-weight: bold; background: #f9f9f9; width: 40%; }
+    .amount { font-size: 20px; font-weight: bold; color: #c00; }
+    .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #888; }
+    .sig { border-top: 1px solid #555; padding-top: 6px; margin-top: 40px; text-align: center; width: 180px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="school-name">EduCore SMS</div>
+    <div class="title">LIBRARY FINE CHALLAN</div>
+    <div class="challan-no">${challanNo}</div>
+  </div>
+  <table>
+    <tr><td>Date</td><td>${fine.date}</td></tr>
+    <tr><td>Student Name</td><td>${fine.studentName}</td></tr>
+    <tr><td>Book Title</td><td>${fine.bookTitle}</td></tr>
+    <tr><td>Fine Type</td><td>${fine.type === "overdue" ? "Overdue" : fine.type === "damage" ? "Damage" : "Lost"}</td></tr>
+    <tr><td>Amount</td><td class="amount">₹${fine.amount}</td></tr>
+    <tr><td>Status</td><td>${fine.paid ? "PAID" : "UNPAID — Please pay at the library counter"}</td></tr>
+  </table>
+  <div class="footer">
+    <div class="sig">Librarian Signature</div>
+    <div class="sig">Student Signature</div>
+  </div>
+</body>
+</html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.onafterprint = () => win.close();
+  };
+
+  const shareOnWhatsApp = (fine: LibraryFine) => {
+    const msg = `Library Fine Notice
+Student: ${fine.studentName}
+Book: ${fine.bookTitle}
+Fine Type: ${fine.type === "overdue" ? "Overdue" : fine.type === "damage" ? "Damage" : "Lost"}
+Amount: ₹${fine.amount}
+Date: ${fine.date}
+Please pay at the library counter.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -1455,6 +1523,48 @@ export default function LibraryModule() {
               </Card>
             </TabsContent>
             <TabsContent value="return-book">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Scan a book barcode to quickly find and return it, or locate
+                  the record in the table below.
+                </p>
+                <BarcodeScannerDialog
+                  books={books}
+                  issues={issues}
+                  onIssue={(bookId, studentId, dueDate) => {
+                    const student = students.find((s) => s.id === studentId);
+                    const book = books.find((b) => b.id === bookId);
+                    if (!student || !book) return;
+                    const newIssueRec: IssueRecord = {
+                      id: `issue-${Date.now()}`,
+                      bookId,
+                      bookTitle: book.title,
+                      studentId: studentId,
+                      studentName: student.name,
+                      issueDate: new Date().toISOString().split("T")[0],
+                      dueDate,
+                      returnDate: null,
+                      status: "issued",
+                      fineAmount: 0,
+                    };
+                    setIssues((prev) => [newIssueRec, ...prev]);
+                    setBooks((prev) =>
+                      prev.map((b) =>
+                        b.id === bookId
+                          ? {
+                              ...b,
+                              availableCopies: b.availableCopies - 1,
+                              issuedCopies: (b.issuedCopies || 0) + 1,
+                            }
+                          : b,
+                      ),
+                    );
+                  }}
+                  onReturn={(issueId) => {
+                    handleReturn(issueId);
+                  }}
+                />
+              </div>
               <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -1806,15 +1916,63 @@ export default function LibraryModule() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {!fine.paid && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleMarkFinePaid(fine.id)}
-                          data-ocid={`library.fines.paid_button.${idx + 1}`}
-                        >
-                          Mark Paid
-                        </Button>
-                      )}
+                      <TooltipProvider>
+                        <div className="flex items-center gap-1">
+                          {!fine.paid && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleMarkFinePaid(fine.id)}
+                              data-ocid={`library.fines.paid_button.${idx + 1}`}
+                            >
+                              Mark Paid
+                            </Button>
+                          )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={() => printChallan(fine)}
+                                data-ocid={`library.fines.print_button.${idx + 1}`}
+                              >
+                                <Printer size={15} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Print Challan</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-green-600 hover:text-green-700"
+                                onClick={() => shareOnWhatsApp(fine)}
+                                data-ocid={`library.fines.whatsapp_button.${idx + 1}`}
+                              >
+                                <MessageCircle size={15} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Share on WhatsApp</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-muted-foreground opacity-50 cursor-not-allowed"
+                                disabled
+                                data-ocid={`library.fines.email_button.${idx + 1}`}
+                              >
+                                <Mail size={15} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Email not enabled on this plan
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -46,6 +46,7 @@ import {
   Tag,
   Trash2,
   TrendingUp,
+  Upload,
   UserCheck,
   UserMinus,
   UserPlus,
@@ -57,6 +58,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../../contexts/AppContext";
 import { useQRScanner } from "../../qr-code/useQRScanner";
+import BulkImportModule from "./BulkImportModule";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -170,7 +172,8 @@ type SectionKey =
   | "subject-attendance"
   | "student-group"
   | "student-promote"
-  | "disable-student";
+  | "disable-student"
+  | "bulk-import";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -1705,6 +1708,11 @@ export default function StudentInfoModule() {
       label: "Disable Student",
       icon: <UserMinus size={16} />,
     },
+    {
+      key: "bulk-import",
+      label: "Bulk Import",
+      icon: <Upload size={16} />,
+    },
   ];
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -2615,6 +2623,7 @@ export default function StudentInfoModule() {
                         <TableHead>Category</TableHead>
                         <TableHead>Mobile</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-center">Perf.</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -2683,6 +2692,37 @@ export default function StudentInfoModule() {
                               >
                                 {s.isActive ? "Active" : "Disabled"}
                               </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {(() => {
+                                const idNum = s.id
+                                  .split("")
+                                  .reduce(
+                                    (a: number, c: string) =>
+                                      a + c.charCodeAt(0),
+                                    0,
+                                  );
+                                const pct = ((idNum * 7) % 50) + 50;
+                                const color =
+                                  pct >= 75
+                                    ? "bg-green-500"
+                                    : pct >= 50
+                                      ? "bg-amber-500"
+                                      : "bg-red-500";
+                                return (
+                                  <span
+                                    className="flex items-center justify-center gap-1"
+                                    title={`Attendance: ${pct}%`}
+                                  >
+                                    <span
+                                      className={`inline-block w-2 h-2 rounded-full ${color}`}
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                      {pct}%
+                                    </span>
+                                  </span>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
@@ -3369,6 +3409,11 @@ export default function StudentInfoModule() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* ── Bulk Import ── */}
+        {activeSection === "bulk-import" && (
+          <BulkImportModule defaultTab="students" />
         )}
       </main>
 

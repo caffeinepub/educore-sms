@@ -46,6 +46,7 @@ import { useApp } from "../../contexts/AppContext";
 import { staffLeaves as initLeaves } from "../../data/mockData";
 import { useQRScanner } from "../../qr-code/useQRScanner";
 import type { Payroll, Staff, StaffAttendance, StaffLeave } from "../../types";
+import BulkImportModule from "./BulkImportModule";
 
 const MONTHS = [
   "January",
@@ -451,6 +452,9 @@ export default function HRModule() {
           </TabsTrigger>
           <TabsTrigger value="payroll" data-ocid="hr.payroll.tab">
             Payroll
+          </TabsTrigger>
+          <TabsTrigger value="bulk-import" data-ocid="hr.bulk_import.tab">
+            Bulk Import
           </TabsTrigger>
           <TabsTrigger value="reports" data-ocid="hr.reports.tab">
             Reports
@@ -1210,6 +1214,11 @@ export default function HRModule() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* Bulk Import */}
+        <TabsContent value="bulk-import">
+          <BulkImportModule defaultTab="staff" />
         </TabsContent>
       </Tabs>
 
