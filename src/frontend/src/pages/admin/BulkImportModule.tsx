@@ -20,9 +20,8 @@ import {
   X,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 
 // ─── CSV Helpers ─────────────────────────────────────────────────────────────
 
@@ -264,10 +263,9 @@ function ImportTab({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFile = (file: File) => {
-    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
     const isCSV = file.name.endsWith(".csv");
-    if (!isExcel && !isCSV) {
-      toast.error("Please upload a .csv, .xlsx, or .xls file");
+    if (!isCSV) {
+      toast.error("Please upload a .csv file");
       return;
     }
     setFileName(file.name);
@@ -294,33 +292,12 @@ function ImportTab({
     };
 
     const reader = new FileReader();
-    if (isExcel) {
-      reader.onload = (e) => {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const jsonRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(
-          sheet,
-          { defval: "" },
-        );
-        if (jsonRows.length === 0) {
-          toast.error("No data found in Excel file");
-          return;
-        }
-        const h = Object.keys(jsonRows[0]);
-        const r = jsonRows.map((row) => h.map((k) => String(row[k] ?? "")));
-        applyParsed(h, r);
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const { headers: h, rows: r } = parseCSV(text);
-        applyParsed(h, r);
-      };
-      reader.readAsText(file);
-    }
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const { headers: h, rows: r } = parseCSV(text);
+      applyParsed(h, r);
+    };
+    reader.readAsText(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -444,13 +421,13 @@ function ImportTab({
               Drag &amp; drop your file here
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              or click to browse — .csv, .xlsx, .xls
+              or click to browse — .csv
             </p>
           </div>
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             className="hidden"
             onChange={handleFileChange}
             data-ocid={`bulk.${label.toLowerCase().replace(/ /g, "_")}.upload_button`}
@@ -645,15 +622,52 @@ function ImportTab({
   );
 }
 
+// ─── Summary card config ──────────────────────────────────────────────────────
+
+type TabKey = "students" | "staff" | "books";
+
+const SUMMARY_CARDS: Array<{
+  key: TabKey;
+  label: string;
+  color: string;
+  bg: string;
+}> = [
+  {
+    key: "students",
+    label: "Students Imported",
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+  },
+  {
+    key: "staff",
+    label: "Staff Imported",
+    color: "text-purple-600",
+    bg: "bg-purple-50",
+  },
+  {
+    key: "books",
+    label: "Books Imported",
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+  },
+];
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface BulkImportModuleProps {
-  defaultTab?: "students" | "staff" | "books";
+  defaultTab?: TabKey;
+  tabs?: Array<TabKey>;
 }
 
 export default function BulkImportModule({
   defaultTab = "students",
+  tabs,
 }: BulkImportModuleProps) {
+  const activeTabs: TabKey[] = tabs ?? ["students", "staff", "books"];
+  const effectiveDefault = activeTabs.includes(defaultTab)
+    ? defaultTab
+    : activeTabs[0];
+
   // Local import storage (simulates adding to the system)
   const [importedStudents, setImportedStudents] = useState<
     Record<string, string>[]
@@ -665,6 +679,12 @@ export default function BulkImportModule({
     [],
   );
 
+  const counts: Record<TabKey, number> = {
+    students: importedStudents.length,
+    staff: importedStaff.length,
+    books: importedBooks.length,
+  };
+
   return (
     <div className="space-y-5" data-ocid="bulk.page">
       <div>
@@ -675,31 +695,14 @@ export default function BulkImportModule({
         </p>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          {
-            label: "Students Imported",
-            count: importedStudents.length,
-            color: "text-blue-600",
-            bg: "bg-blue-50",
-          },
-          {
-            label: "Staff Imported",
-            count: importedStaff.length,
-            color: "text-purple-600",
-            bg: "bg-purple-50",
-          },
-          {
-            label: "Books Imported",
-            count: importedBooks.length,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
-          },
-        ].map((s) => (
+      {/* Summary cards — only for active tabs */}
+      <div className={`grid gap-4 grid-cols-${activeTabs.length}`}>
+        {SUMMARY_CARDS.filter((c) => activeTabs.includes(c.key)).map((s) => (
           <Card key={s.label}>
             <CardContent className="pt-4">
-              <div className={`text-3xl font-bold ${s.color}`}>{s.count}</div>
+              <div className={`text-3xl font-bold ${s.color}`}>
+                {counts[s.key]}
+              </div>
               <div className="text-sm text-muted-foreground mt-0.5">
                 {s.label}
               </div>
@@ -708,87 +711,99 @@ export default function BulkImportModule({
         ))}
       </div>
 
-      <Tabs defaultValue={defaultTab} data-ocid="bulk.tab">
+      <Tabs defaultValue={effectiveDefault} data-ocid="bulk.tab">
         <TabsList>
-          <TabsTrigger value="students" data-ocid="bulk.students.tab">
-            Students
-          </TabsTrigger>
-          <TabsTrigger value="staff" data-ocid="bulk.staff.tab">
-            Staff
-          </TabsTrigger>
-          <TabsTrigger value="books" data-ocid="bulk.books.tab">
-            Books
-          </TabsTrigger>
+          {activeTabs.includes("students") && (
+            <TabsTrigger value="students" data-ocid="bulk.students.tab">
+              Students
+            </TabsTrigger>
+          )}
+          {activeTabs.includes("staff") && (
+            <TabsTrigger value="staff" data-ocid="bulk.staff.tab">
+              Staff
+            </TabsTrigger>
+          )}
+          {activeTabs.includes("books") && (
+            <TabsTrigger value="books" data-ocid="bulk.books.tab">
+              Books
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="students" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Upload size={16} className="text-primary" />
-                Student Bulk Import
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ImportTab
-                label="Students"
-                headers={STUDENT_HEADERS}
-                sampleRows={STUDENT_SAMPLE_ROWS}
-                templateFilename="student_import_template.csv"
-                validate={validateStudentRow}
-                onImport={(rows) =>
-                  setImportedStudents((prev) => [...prev, ...rows])
-                }
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {activeTabs.includes("students") && (
+          <TabsContent value="students" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Upload size={16} className="text-primary" />
+                  Student Bulk Import
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ImportTab
+                  label="Students"
+                  headers={STUDENT_HEADERS}
+                  sampleRows={STUDENT_SAMPLE_ROWS}
+                  templateFilename="student_import_template.csv"
+                  validate={validateStudentRow}
+                  onImport={(rows) =>
+                    setImportedStudents((prev) => [...prev, ...rows])
+                  }
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="staff" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Upload size={16} className="text-primary" />
-                Staff Bulk Import
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ImportTab
-                label="Staff"
-                headers={STAFF_HEADERS}
-                sampleRows={STAFF_SAMPLE_ROWS}
-                templateFilename="staff_import_template.csv"
-                validate={validateStaffRow}
-                onImport={(rows) =>
-                  setImportedStaff((prev) => [...prev, ...rows])
-                }
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {activeTabs.includes("staff") && (
+          <TabsContent value="staff" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Upload size={16} className="text-primary" />
+                  Staff Bulk Import
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ImportTab
+                  label="Staff"
+                  headers={STAFF_HEADERS}
+                  sampleRows={STAFF_SAMPLE_ROWS}
+                  templateFilename="staff_import_template.csv"
+                  validate={validateStaffRow}
+                  onImport={(rows) =>
+                    setImportedStaff((prev) => [...prev, ...rows])
+                  }
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="books" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Upload size={16} className="text-primary" />
-                Books Bulk Import
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ImportTab
-                label="Books"
-                headers={BOOK_HEADERS}
-                sampleRows={BOOK_SAMPLE_ROWS}
-                templateFilename="books_import_template.csv"
-                validate={validateBookRow}
-                onImport={(rows) =>
-                  setImportedBooks((prev) => [...prev, ...rows])
-                }
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {activeTabs.includes("books") && (
+          <TabsContent value="books" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Upload size={16} className="text-primary" />
+                  Books Bulk Import
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ImportTab
+                  label="Books"
+                  headers={BOOK_HEADERS}
+                  sampleRows={BOOK_SAMPLE_ROWS}
+                  templateFilename="books_import_template.csv"
+                  validate={validateBookRow}
+                  onImport={(rows) =>
+                    setImportedBooks((prev) => [...prev, ...rows])
+                  }
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, GraduationCap, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Info, Lock, Mail, X } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { useApp } from "../contexts/AppContext";
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showForgotInfo, setShowForgotInfo] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +53,9 @@ export default function LoginPage() {
           </div>
           <div className="space-y-4">
             {[
-              "Multi-school management with isolated data",
-              "Role-based dashboards for every stakeholder",
-              "Library, HR, Students, Front Office & more",
+              "Secure access for Administrators, Principals, Teachers & Employees",
+              "Role-based dashboards automatically assigned on login",
+              "Library, HR, Students, Front Office & more modules",
             ].map((f) => (
               <div key={f} className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -92,7 +93,8 @@ export default function LoginPage() {
             </div>
             <CardTitle className="text-xl">Sign In</CardTitle>
             <CardDescription>
-              Enter your email and password to access your account
+              Single sign-in portal for Administrators, Principals, Teachers,
+              and Staff
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -142,7 +144,53 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {/* Forgot Password link */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotInfo((v) => !v)}
+                    className="text-xs text-primary hover:underline"
+                    data-ocid="login.link"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
               </div>
+
+              {/* Forgot Password info box */}
+              {showForgotInfo && (
+                <div
+                  className="bg-blue-50 border border-blue-200 rounded-lg p-3 relative"
+                  data-ocid="login.panel"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotInfo(false)}
+                    className="absolute right-2 top-2 text-blue-400 hover:text-blue-600"
+                    data-ocid="login.close_button"
+                  >
+                    <X size={14} />
+                  </button>
+                  <div className="flex items-start gap-2 pr-4">
+                    <Info
+                      size={15}
+                      className="text-blue-500 flex-shrink-0 mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-800 mb-1">
+                        Password Recovery
+                      </p>
+                      <p className="text-xs text-blue-700 leading-relaxed">
+                        Please contact your school Administrator to reset your
+                        password. Your Admin can reset it from the{" "}
+                        <span className="font-semibold">User Accounts</span>{" "}
+                        section and will provide you with a new temporary
+                        password.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div

@@ -24,6 +24,7 @@ export interface UserAccount {
   name: string;
   schoolId: string;
   linkedId?: string;
+  childrenIds?: string[];
   mustChangePassword: boolean;
   isActive: boolean;
   createdAt: string;

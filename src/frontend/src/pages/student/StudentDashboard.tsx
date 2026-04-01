@@ -11,6 +11,7 @@ import {
 import {
   BookOpen,
   Calendar,
+  ClipboardList,
   DollarSign,
   FileText,
   GraduationCap,
@@ -27,6 +28,7 @@ type Section =
   | "dashboard"
   | "schedule"
   | "marks"
+  | "examresults"
   | "attendance"
   | "materials"
   | "assignments"
@@ -34,6 +36,46 @@ type Section =
   | "communication"
   | "library"
   | "frontoffice";
+
+// Static published exam results for the student view
+const PUBLISHED_EXAM_RESULTS = [
+  {
+    id: "pr1",
+    examTitle: "Mid-Term Examination 2024",
+    type: "Internal" as const,
+    subject: "Childhood and Growing Up",
+    program: "B.Ed",
+    semester: "Semester 1",
+    marksObtained: 72,
+    totalMarks: 100,
+    grade: "B+",
+    passingMarks: 40,
+  },
+  {
+    id: "pr2",
+    examTitle: "Annual University Exam 2024",
+    type: "University" as const,
+    subject: "Contemporary India and Education",
+    program: "B.Ed",
+    semester: "Semester 1",
+    marksObtained: 68,
+    totalMarks: 100,
+    grade: "B",
+    passingMarks: 35,
+  },
+  {
+    id: "pr3",
+    examTitle: "Practical Assessment",
+    type: "Internal" as const,
+    subject: "Learning and Teaching",
+    program: "B.Ed",
+    semester: "Semester 1",
+    marksObtained: 41,
+    totalMarks: 50,
+    grade: "A",
+    passingMarks: 20,
+  },
+];
 
 export default function StudentDashboard() {
   const {
@@ -302,6 +344,93 @@ export default function StudentDashboard() {
               </Table>
             </CardContent>
           </Card>
+        </div>
+      )}
+      {section === "examresults" && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold">Exam Results</h2>
+            <p className="text-muted-foreground">
+              Published results for Internal and University examinations
+            </p>
+          </div>
+          {PUBLISHED_EXAM_RESULTS.length === 0 ? (
+            <Card>
+              <CardContent
+                className="pt-6 text-center text-muted-foreground"
+                data-ocid="student.examresults.empty_state"
+              >
+                No published exam results yet.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4" data-ocid="student.examresults.list">
+              {PUBLISHED_EXAM_RESULTS.map((r, i) => {
+                const passed = r.marksObtained >= r.passingMarks;
+                return (
+                  <Card
+                    key={r.id}
+                    data-ocid={`student.examresults.item.${i + 1}`}
+                  >
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 className="font-semibold text-base">
+                              {r.examTitle}
+                            </h3>
+                            <Badge
+                              variant={
+                                r.type === "University"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {r.type}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {r.subject} &middot; {r.program} &middot;{" "}
+                            {r.semester}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-2xl font-bold">
+                            {r.marksObtained}
+                            <span className="text-base font-normal text-muted-foreground">
+                              /{r.totalMarks}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 justify-end mt-1">
+                            <Badge variant="outline" className="font-bold">
+                              {r.grade}
+                            </Badge>
+                            <Badge variant={passed ? "default" : "destructive"}>
+                              {passed ? "Pass" : "Fail"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${passed ? "bg-green-500" : "bg-red-500"}`}
+                            style={{
+                              width: `${Math.min(100, (r.marksObtained / r.totalMarks) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {Math.round((r.marksObtained / r.totalMarks) * 100)}%
+                          &middot; Pass mark: {r.passingMarks}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
       {section === "attendance" && (

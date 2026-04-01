@@ -81,7 +81,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userAccounts, setUserAccounts] = useState<UserAccount[]>(() => {
     try {
       const stored = localStorage.getItem("educore_accounts");
-      if (stored) return JSON.parse(stored) as UserAccount[];
+      if (stored) {
+        const parsed = JSON.parse(stored) as UserAccount[];
+        // Merge seed parent accounts if they're missing (handles old stored data)
+        const seedParents = seedUserAccounts.filter((a) => a.role === "parent");
+        const merged = [...parsed];
+        for (const sp of seedParents) {
+          if (!merged.find((a) => a.id === sp.id)) {
+            merged.push(sp);
+          }
+        }
+        return merged;
+      }
     } catch {}
     return seedUserAccounts;
   });
@@ -148,11 +159,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       staffId:
         account.role !== "student" &&
         account.role !== "admin" &&
-        account.role !== "superadmin"
+        account.role !== "superadmin" &&
+        account.role !== "parent"
           ? account.linkedId
           : undefined,
       studentId: account.role === "student" ? account.linkedId : undefined,
-      childrenIds: account.role === "parent" ? [] : undefined,
+      childrenIds:
+        account.role === "parent" ? (account.childrenIds ?? []) : undefined,
     };
     setUserProfileState(profile);
     localStorage.setItem("educore_profile", JSON.stringify(profile));

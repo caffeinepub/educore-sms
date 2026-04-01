@@ -19,14 +19,27 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
-export const UserRole = IDL.Variant({
+export const SchoolID = IDL.Nat;
+export const UserRole__1 = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
 export const StudentID = IDL.Nat;
+export const FeeID = IDL.Nat;
+export const FeeAssignmentID = IDL.Nat;
+export const ClassID = IDL.Nat;
+export const SessionID = IDL.Nat;
+export const FeeHead = IDL.Variant({
+  'Library' : IDL.Null,
+  'Admission' : IDL.Null,
+  'Exam' : IDL.Null,
+  'Tuition' : IDL.Null,
+  'Other' : IDL.Text,
+  'Hostel' : IDL.Null,
+});
 export const StaffID = IDL.Nat;
-export const AppRole = IDL.Variant({
+export const UserRole = IDL.Variant({
   'accountant' : IDL.Null,
   'librarian' : IDL.Null,
   'admin' : IDL.Null,
@@ -35,14 +48,68 @@ export const AppRole = IDL.Variant({
   'superadmin' : IDL.Null,
   'parent' : IDL.Null,
 });
-export const SchoolID = IDL.Nat;
 export const UserProfile = IDL.Record({
   'studentId' : IDL.Opt(StudentID),
   'staffId' : IDL.Opt(StaffID),
   'name' : IDL.Text,
-  'role' : AppRole,
+  'role' : UserRole,
   'schoolId' : IDL.Opt(SchoolID),
   'childrenIds' : IDL.Vec(StudentID),
+});
+export const FeeMaster = IDL.Record({
+  'id' : FeeID,
+  'feeHead' : FeeHead,
+  'dueDate' : IDL.Int,
+  'classId' : ClassID,
+  'schoolId' : SchoolID,
+  'sessionId' : SessionID,
+  'amount' : IDL.Float64,
+});
+export const FinancialSummary = IDL.Record({
+  'defaultersCount' : IDL.Nat,
+  'totalCollected' : IDL.Float64,
+  'totalPending' : IDL.Float64,
+});
+export const School = IDL.Record({
+  'id' : SchoolID,
+  'name' : IDL.Text,
+  'isActive' : IDL.Bool,
+  'email' : IDL.Text,
+  'address' : IDL.Text,
+  'phone' : IDL.Text,
+});
+export const PaymentID = IDL.Nat;
+export const PaymentMode = IDL.Variant({
+  'Cash' : IDL.Null,
+  'Online' : IDL.Null,
+  'BankTransfer' : IDL.Null,
+  'Cheque' : IDL.Null,
+});
+export const FeePayment = IDL.Record({
+  'id' : PaymentID,
+  'feeAssignmentId' : FeeAssignmentID,
+  'studentId' : StudentID,
+  'receiptNum' : IDL.Text,
+  'recordedBy' : IDL.Principal,
+  'amountPaid' : IDL.Float64,
+  'schoolId' : SchoolID,
+  'paymentDate' : IDL.Int,
+  'paymentMode' : PaymentMode,
+});
+export const FeeAssignment = IDL.Record({
+  'id' : FeeAssignmentID,
+  'studentId' : StudentID,
+  'assignedAt' : IDL.Int,
+  'assignedBy' : IDL.Principal,
+  'schoolId' : SchoolID,
+  'feeId' : FeeID,
+});
+export const FeeLedgerEntry = IDL.Record({
+  'payments' : IDL.Vec(FeePayment),
+  'outstanding' : IDL.Float64,
+  'totalPaid' : IDL.Float64,
+  'feeAssignment' : FeeAssignment,
+  'feeMaster' : FeeMaster,
 });
 
 export const idlService = IDL.Service({
@@ -73,11 +140,56 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'addSchool' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [SchoolID],
+      [],
+    ),
+  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
+  'assignFeeToStudent' : IDL.Func([StudentID, FeeID], [FeeAssignmentID], []),
+  'createFeeMaster' : IDL.Func(
+      [SchoolID, ClassID, SessionID, FeeHead, IDL.Float64, IDL.Int],
+      [FeeID],
+      [],
+    ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getCallerUserRole' : IDL.Func([], [UserRole__1], ['query']),
+  'getFeeDefaulters' : IDL.Func(
+      [SchoolID, IDL.Opt(ClassID), IDL.Opt(SessionID)],
+      [IDL.Vec(StudentID)],
+      ['query'],
+    ),
+  'getFeeMasters' : IDL.Func([SchoolID], [IDL.Vec(FeeMaster)], ['query']),
+  'getFinancialSummary' : IDL.Func(
+      [SchoolID, IDL.Opt(IDL.Int), IDL.Opt(IDL.Int)],
+      [FinancialSummary],
+      ['query'],
+    ),
+  'getRemoteSchools' : IDL.Func([], [IDL.Vec(School)], ['query']),
+  'getStudentFeeLedger' : IDL.Func(
+      [StudentID],
+      [IDL.Vec(FeeLedgerEntry)],
+      ['query'],
+    ),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'recordPayment' : IDL.Func(
+      [StudentID, FeeAssignmentID, IDL.Float64, PaymentMode],
+      [PaymentID],
+      [],
+    ),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'searchSchools' : IDL.Func([IDL.Text], [IDL.Vec(School)], ['query']),
+  'updateFeeMaster' : IDL.Func([FeeID, IDL.Float64, IDL.Int], [], []),
+  'updateSchool' : IDL.Func(
+      [SchoolID, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
@@ -94,14 +206,27 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
-  const UserRole = IDL.Variant({
+  const SchoolID = IDL.Nat;
+  const UserRole__1 = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
   const StudentID = IDL.Nat;
+  const FeeID = IDL.Nat;
+  const FeeAssignmentID = IDL.Nat;
+  const ClassID = IDL.Nat;
+  const SessionID = IDL.Nat;
+  const FeeHead = IDL.Variant({
+    'Library' : IDL.Null,
+    'Admission' : IDL.Null,
+    'Exam' : IDL.Null,
+    'Tuition' : IDL.Null,
+    'Other' : IDL.Text,
+    'Hostel' : IDL.Null,
+  });
   const StaffID = IDL.Nat;
-  const AppRole = IDL.Variant({
+  const UserRole = IDL.Variant({
     'accountant' : IDL.Null,
     'librarian' : IDL.Null,
     'admin' : IDL.Null,
@@ -110,14 +235,68 @@ export const idlFactory = ({ IDL }) => {
     'superadmin' : IDL.Null,
     'parent' : IDL.Null,
   });
-  const SchoolID = IDL.Nat;
   const UserProfile = IDL.Record({
     'studentId' : IDL.Opt(StudentID),
     'staffId' : IDL.Opt(StaffID),
     'name' : IDL.Text,
-    'role' : AppRole,
+    'role' : UserRole,
     'schoolId' : IDL.Opt(SchoolID),
     'childrenIds' : IDL.Vec(StudentID),
+  });
+  const FeeMaster = IDL.Record({
+    'id' : FeeID,
+    'feeHead' : FeeHead,
+    'dueDate' : IDL.Int,
+    'classId' : ClassID,
+    'schoolId' : SchoolID,
+    'sessionId' : SessionID,
+    'amount' : IDL.Float64,
+  });
+  const FinancialSummary = IDL.Record({
+    'defaultersCount' : IDL.Nat,
+    'totalCollected' : IDL.Float64,
+    'totalPending' : IDL.Float64,
+  });
+  const School = IDL.Record({
+    'id' : SchoolID,
+    'name' : IDL.Text,
+    'isActive' : IDL.Bool,
+    'email' : IDL.Text,
+    'address' : IDL.Text,
+    'phone' : IDL.Text,
+  });
+  const PaymentID = IDL.Nat;
+  const PaymentMode = IDL.Variant({
+    'Cash' : IDL.Null,
+    'Online' : IDL.Null,
+    'BankTransfer' : IDL.Null,
+    'Cheque' : IDL.Null,
+  });
+  const FeePayment = IDL.Record({
+    'id' : PaymentID,
+    'feeAssignmentId' : FeeAssignmentID,
+    'studentId' : StudentID,
+    'receiptNum' : IDL.Text,
+    'recordedBy' : IDL.Principal,
+    'amountPaid' : IDL.Float64,
+    'schoolId' : SchoolID,
+    'paymentDate' : IDL.Int,
+    'paymentMode' : PaymentMode,
+  });
+  const FeeAssignment = IDL.Record({
+    'id' : FeeAssignmentID,
+    'studentId' : StudentID,
+    'assignedAt' : IDL.Int,
+    'assignedBy' : IDL.Principal,
+    'schoolId' : SchoolID,
+    'feeId' : FeeID,
+  });
+  const FeeLedgerEntry = IDL.Record({
+    'payments' : IDL.Vec(FeePayment),
+    'outstanding' : IDL.Float64,
+    'totalPaid' : IDL.Float64,
+    'feeAssignment' : FeeAssignment,
+    'feeMaster' : FeeMaster,
   });
   
   return IDL.Service({
@@ -148,11 +327,56 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'addSchool' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [SchoolID],
+        [],
+      ),
+    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
+    'assignFeeToStudent' : IDL.Func([StudentID, FeeID], [FeeAssignmentID], []),
+    'createFeeMaster' : IDL.Func(
+        [SchoolID, ClassID, SessionID, FeeHead, IDL.Float64, IDL.Int],
+        [FeeID],
+        [],
+      ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getCallerUserRole' : IDL.Func([], [UserRole__1], ['query']),
+    'getFeeDefaulters' : IDL.Func(
+        [SchoolID, IDL.Opt(ClassID), IDL.Opt(SessionID)],
+        [IDL.Vec(StudentID)],
+        ['query'],
+      ),
+    'getFeeMasters' : IDL.Func([SchoolID], [IDL.Vec(FeeMaster)], ['query']),
+    'getFinancialSummary' : IDL.Func(
+        [SchoolID, IDL.Opt(IDL.Int), IDL.Opt(IDL.Int)],
+        [FinancialSummary],
+        ['query'],
+      ),
+    'getRemoteSchools' : IDL.Func([], [IDL.Vec(School)], ['query']),
+    'getStudentFeeLedger' : IDL.Func(
+        [StudentID],
+        [IDL.Vec(FeeLedgerEntry)],
+        ['query'],
+      ),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'recordPayment' : IDL.Func(
+        [StudentID, FeeAssignmentID, IDL.Float64, PaymentMode],
+        [PaymentID],
+        [],
+      ),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'searchSchools' : IDL.Func([IDL.Text], [IDL.Vec(School)], ['query']),
+    'updateFeeMaster' : IDL.Func([FeeID, IDL.Float64, IDL.Int], [], []),
+    'updateSchool' : IDL.Func(
+        [SchoolID, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [],
+        [],
+      ),
   });
 };
 

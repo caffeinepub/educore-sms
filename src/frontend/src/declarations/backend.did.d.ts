@@ -10,25 +10,88 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export type AppRole = { 'accountant' : null } |
-  { 'librarian' : null } |
-  { 'admin' : null } |
-  { 'teacher' : null } |
-  { 'student' : null } |
-  { 'superadmin' : null } |
-  { 'parent' : null };
+export type ClassID = bigint;
+export interface FeeAssignment {
+  'id' : FeeAssignmentID,
+  'studentId' : StudentID,
+  'assignedAt' : bigint,
+  'assignedBy' : Principal,
+  'schoolId' : SchoolID,
+  'feeId' : FeeID,
+}
+export type FeeAssignmentID = bigint;
+export type FeeHead = { 'Library' : null } |
+  { 'Admission' : null } |
+  { 'Exam' : null } |
+  { 'Tuition' : null } |
+  { 'Other' : string } |
+  { 'Hostel' : null };
+export type FeeID = bigint;
+export interface FeeLedgerEntry {
+  'payments' : Array<FeePayment>,
+  'outstanding' : number,
+  'totalPaid' : number,
+  'feeAssignment' : FeeAssignment,
+  'feeMaster' : FeeMaster,
+}
+export interface FeeMaster {
+  'id' : FeeID,
+  'feeHead' : FeeHead,
+  'dueDate' : bigint,
+  'classId' : ClassID,
+  'schoolId' : SchoolID,
+  'sessionId' : SessionID,
+  'amount' : number,
+}
+export interface FeePayment {
+  'id' : PaymentID,
+  'feeAssignmentId' : FeeAssignmentID,
+  'studentId' : StudentID,
+  'receiptNum' : string,
+  'recordedBy' : Principal,
+  'amountPaid' : number,
+  'schoolId' : SchoolID,
+  'paymentDate' : bigint,
+  'paymentMode' : PaymentMode,
+}
+export interface FinancialSummary {
+  'defaultersCount' : bigint,
+  'totalCollected' : number,
+  'totalPending' : number,
+}
+export type PaymentID = bigint;
+export type PaymentMode = { 'Cash' : null } |
+  { 'Online' : null } |
+  { 'BankTransfer' : null } |
+  { 'Cheque' : null };
+export interface School {
+  'id' : SchoolID,
+  'name' : string,
+  'isActive' : boolean,
+  'email' : string,
+  'address' : string,
+  'phone' : string,
+}
 export type SchoolID = bigint;
+export type SessionID = bigint;
 export type StaffID = bigint;
 export type StudentID = bigint;
 export interface UserProfile {
   'studentId' : [] | [StudentID],
   'staffId' : [] | [StaffID],
   'name' : string,
-  'role' : AppRole,
+  'role' : UserRole,
   'schoolId' : [] | [SchoolID],
   'childrenIds' : Array<StudentID>,
 }
-export type UserRole = { 'admin' : null } |
+export type UserRole = { 'accountant' : null } |
+  { 'librarian' : null } |
+  { 'admin' : null } |
+  { 'teacher' : null } |
+  { 'student' : null } |
+  { 'superadmin' : null } |
+  { 'parent' : null };
+export type UserRole__1 = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
 export interface _CaffeineStorageCreateCertificateResult {
@@ -59,11 +122,39 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'addSchool' : ActorMethod<[string, string, string, string], SchoolID>,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole__1], undefined>,
+  'assignFeeToStudent' : ActorMethod<[StudentID, FeeID], FeeAssignmentID>,
+  'createFeeMaster' : ActorMethod<
+    [SchoolID, ClassID, SessionID, FeeHead, number, bigint],
+    FeeID
+  >,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
-  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCallerUserRole' : ActorMethod<[], UserRole__1>,
+  'getFeeDefaulters' : ActorMethod<
+    [SchoolID, [] | [ClassID], [] | [SessionID]],
+    Array<StudentID>
+  >,
+  'getFeeMasters' : ActorMethod<[SchoolID], Array<FeeMaster>>,
+  'getFinancialSummary' : ActorMethod<
+    [SchoolID, [] | [bigint], [] | [bigint]],
+    FinancialSummary
+  >,
+  'getRemoteSchools' : ActorMethod<[], Array<School>>,
+  'getStudentFeeLedger' : ActorMethod<[StudentID], Array<FeeLedgerEntry>>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'recordPayment' : ActorMethod<
+    [StudentID, FeeAssignmentID, number, PaymentMode],
+    PaymentID
+  >,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'searchSchools' : ActorMethod<[string], Array<School>>,
+  'updateFeeMaster' : ActorMethod<[FeeID, number, bigint], undefined>,
+  'updateSchool' : ActorMethod<
+    [SchoolID, string, string, string, string],
+    undefined
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
