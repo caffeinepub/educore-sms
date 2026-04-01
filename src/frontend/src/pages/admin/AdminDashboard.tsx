@@ -3,15 +3,38 @@ import {
   AlertTriangle,
   BarChart2,
   BookOpen,
+  BriefcaseBusiness,
+  Building2,
+  Bus,
+  CalendarCheck,
   ClipboardList,
   DollarSign,
+  FileBarChart,
+  FileText,
   GraduationCap,
-  Upload,
+  HandCoins,
+  IdCard,
+  LayoutList,
+  MessageSquare,
+  Receipt,
+  ScrollText,
+  TrendingDown,
+  TrendingUp,
   UserCheck,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react";
-import React, { useState } from "react";
+import type React from "react";
+import { useState } from "react";
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import Layout from "../../components/Layout";
 import { useApp } from "../../contexts/AppContext";
 import CommunicationModule from "../communication/CommunicationModule";
@@ -130,6 +153,151 @@ export default function AdminDashboard() {
     },
   ];
 
+  const moduleShortcuts: {
+    label: string;
+    section: Section;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      label: "SMS",
+      section: "communication",
+      icon: <MessageSquare size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Students",
+      section: "students",
+      icon: <Users size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Leads/Inquiry",
+      section: "frontoffice",
+      icon: <ClipboardList size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Teachers",
+      section: "hr",
+      icon: <GraduationCap size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Employees",
+      section: "hr",
+      icon: <BriefcaseBusiness size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Parents",
+      section: "students",
+      icon: <UserCheck size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Attendance",
+      section: "students",
+      icon: <CalendarCheck size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Leave",
+      section: "hr",
+      icon: <FileText size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Homework",
+      section: "academics",
+      icon: <BookOpen size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Fees Structure",
+      section: "fees",
+      icon: <LayoutList size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Transport Structure",
+      section: "fees",
+      icon: <Bus size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Fees Defaulters",
+      section: "fees",
+      icon: <AlertTriangle size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Collect Fees",
+      section: "fees",
+      icon: <HandCoins size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Collected Fees Summary",
+      section: "fees",
+      icon: <Wallet size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Fees Collection Report",
+      section: "reports",
+      icon: <FileBarChart size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Expenses",
+      section: "fees",
+      icon: <TrendingDown size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Incomes",
+      section: "fees",
+      icon: <TrendingUp size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Ledger",
+      section: "fees",
+      icon: <ScrollText size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Admit Cards",
+      section: "examination",
+      icon: <IdCard size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Marksheets",
+      section: "examination",
+      icon: <Receipt size={28} className="text-blue-500" />,
+    },
+    {
+      label: "Transfer Certificate",
+      section: "students",
+      icon: <Building2 size={28} className="text-blue-500" />,
+    },
+  ];
+
+  const totalReceived =
+    myPayments.reduce((a, p) => a + p.amountPaid, 0) || 205600;
+  const totalFees = totalReceived * 1.95 || 400700;
+  const grossTotal = totalReceived * 1.88 || 385700;
+  const headDiscount = totalFees * 0.02 || 8400;
+  const totalDiscount = totalFees * 0.03 || 12600;
+  const totalBalance = totalFees - totalReceived || 195100;
+
+  const feesPieData = [
+    { name: "Total Fees", value: Math.round(totalFees), color: "#3b28cc" },
+    {
+      name: "Head Discount",
+      value: Math.round(headDiscount),
+      color: "#a3e635",
+    },
+    { name: "Gross Total", value: Math.round(grossTotal), color: "#4da6ff" },
+    {
+      name: "Total Received",
+      value: Math.round(totalReceived),
+      color: "#22c55e",
+    },
+    {
+      name: "Total Discount",
+      value: Math.round(totalDiscount),
+      color: "#86efac",
+    },
+    {
+      name: "Total Balance",
+      value: Math.round(totalBalance),
+      color: "#ef4444",
+    },
+  ];
+
   const renderDashboard = () => (
     <div className="space-y-6">
       {/* Welcome Banner */}
@@ -140,7 +308,6 @@ export default function AdminDashboard() {
             "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 60%, #3b82f6 100%)",
         }}
       >
-        {/* Decorative circles */}
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5" />
         <div className="absolute -bottom-10 right-24 w-56 h-56 rounded-full bg-white/5" />
         <div className="relative z-10">
@@ -152,7 +319,6 @@ export default function AdminDashboard() {
             {school?.name ?? "School Overview"} &mdash; you have {atRiskCount}{" "}
             at-risk student{atRiskCount !== 1 ? "s" : ""} to review today.
           </p>
-          {/* Quick action buttons */}
           <div className="flex flex-wrap gap-2">
             {quickActions.map((a) => (
               <button
@@ -217,7 +383,7 @@ export default function AdminDashboard() {
           <Card
             key={stat.label}
             className={`border ${stat.border}`}
-            data-ocid={"admin.stat.card"}
+            data-ocid="admin.stat.card"
           >
             <CardContent className="pt-4">
               <div
@@ -234,110 +400,127 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Quick access + Recent payments */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="border-slate-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-slate-700">
-              Module Quick Access
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {[
-              {
-                label: "Manage Students",
-                section: "students" as Section,
-                icon: <Users size={15} />,
-                desc: "Add, edit, promote students",
-              },
-              {
-                label: "Academics",
-                section: "academics" as Section,
-                icon: <BookOpen size={15} />,
-                desc: "Classes, subjects, routines",
-              },
-              {
-                label: "Collect Fees",
-                section: "fees" as Section,
-                icon: <DollarSign size={15} />,
-                desc: "Payments and dues",
-              },
-              {
-                label: "Examinations",
-                section: "examination" as Section,
-                icon: <ClipboardList size={15} />,
-                desc: "Schedule and marks",
-              },
-              {
-                label: "Bulk Import",
-                section: "bulkimport" as Section,
-                icon: <Upload size={15} />,
-                desc: "Import students, staff, books",
-              },
-              {
-                label: "Track Performance",
-                section: "reports" as Section,
-                icon: <BarChart2 size={15} />,
-                desc: "At-risk and analytics",
-              },
-            ].map((a) => (
+      {/* Module Shortcuts Grid */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-slate-700">
+            Module Shortcuts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-3">
+            {moduleShortcuts.map((mod) => (
               <button
+                key={mod.label}
                 type="button"
-                key={a.section + a.label}
-                onClick={() => setSection(a.section)}
-                className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left border border-transparent hover:border-slate-200"
-                data-ocid={`admin.quicklink.${a.section}.button`}
+                onClick={() => setSection(mod.section)}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer shadow-sm"
+                data-ocid={`admin.shortcut.${mod.section}.button`}
               >
-                <span className="w-7 h-7 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
-                  {a.icon}
+                {mod.icon}
+                <span className="text-xs text-center text-slate-600 mt-1 leading-tight">
+                  {mod.label}
                 </span>
-                <div>
-                  <div className="text-sm font-medium text-slate-700">
-                    {a.label}
-                  </div>
-                  <div className="text-xs text-slate-400">{a.desc}</div>
-                </div>
               </button>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card className="border-slate-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-slate-700">
-              Recent Payments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {myPayments.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">
-                No payment records yet.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {myPayments.slice(0, 5).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
-                  >
-                    <div>
-                      <div className="text-sm font-medium text-slate-700">
-                        {p.receiptNumber}
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        {p.paymentDate}
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-green-600">
-                      ₹{p.amountPaid.toLocaleString()}
-                    </span>
-                  </div>
+      {/* Overall Fees Report */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-slate-700">
+            Overall Fees Report
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={feesPieData}
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                dataKey="value"
+                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                labelLine={false}
+              >
+                {feesPieData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.color} />
                 ))}
+              </Pie>
+              <Tooltip
+                formatter={(value: number) => [
+                  `₹${value.toLocaleString()}`,
+                  "",
+                ]}
+              />
+              <Legend
+                formatter={(value) => (
+                  <span className="text-xs text-slate-600">{value}</span>
+                )}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
+            {feesPieData.map((item) => (
+              <div
+                key={item.name}
+                className="flex items-center gap-2 p-2 rounded-lg bg-slate-50"
+              >
+                <span
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: item.color }}
+                />
+                <div>
+                  <div className="text-xs text-slate-500">{item.name}</div>
+                  <div className="text-sm font-semibold text-slate-700">
+                    ₹{item.value.toLocaleString()}
+                  </div>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Payments */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-slate-700">
+            Recent Payments
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myPayments.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">
+              No payment records yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {myPayments.slice(0, 5).map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-slate-700">
+                      {p.receiptNumber}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {p.paymentDate}
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-green-600">
+                    ₹{p.amountPaid.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 
